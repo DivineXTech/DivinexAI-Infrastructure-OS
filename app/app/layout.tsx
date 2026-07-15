@@ -19,16 +19,15 @@ export default async function AppLayout({
   const memberships = await listMyTenantMemberships();
 
   if (memberships.length === 0) {
+    // No AppShell chrome (no tenant to show nav/breadcrumbs/switcher for)
+    // — but `children` still renders, so /app/onboarding (which has no
+    // tenant-membership requirement, by design) can render its
+    // create-tenant form. Every other /app/* page redirects itself to
+    // /app/onboarding via requireCurrentTenantRole when membership is
+    // null, so nothing else meaningfully renders through this branch.
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
-        <h1 className="text-xl font-semibold text-ink">
-          Welcome, {profile.fullName ?? "there"}.
-        </h1>
-        <p className="max-w-md text-sm text-ink-muted">
-          Your account isn&apos;t linked to a tenant yet. The brand
-          onboarding wizard (Phase 3) will create your first tenant
-          automatically — until then, an admin can add you to one.
-        </p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 py-12 text-center">
+        {children}
       </div>
     );
   }

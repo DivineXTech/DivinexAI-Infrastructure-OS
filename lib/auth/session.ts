@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { writeAuditLog } from "@/lib/audit/log";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { RoleKey } from "@/lib/auth/roles";
 
@@ -149,8 +150,18 @@ export async function requireCurrentTenantRole(
   if (!profile) redirect("/login");
 
   const membership = await getCurrentTenantMembership();
-  if (!membership || membership.status !== "active") redirect("/app");
+  // No tenant at all (vs. a tenant but the wrong role) sends the user
+  // somewhere that can actually resolve it, rather than back to a
+  // dashboard route that would just redirect them here again.
+  if (!membership) redirect("/app/onboarding");
+  if (membership.status !== "active") redirect("/app");
   if (!profile.isPlatformSuperAdmin && !allowedRoles.includes(membership.roleKey)) {
+    await writeAuditLog({
+      tenantId: membership.tenantId,
+      actorProfileId: profile.id,
+      action: "privileged_action.denied",
+      metadata: { requiredRoles: allowedRoles, actualRole: membership.roleKey },
+    });
     redirect("/app");
   }
 
@@ -181,6 +192,12 @@ export async function requireTenantRole(
     redirect("/app");
   }
   if (!allowedRoles.includes(membership.roleKey)) {
+    await writeAuditLog({
+      tenantId: membership.tenantId,
+      actorProfileId: profile.id,
+      action: "privileged_action.denied",
+      metadata: { requiredRoles: allowedRoles, actualRole: membership.roleKey },
+    });
     redirect("/app");
   }
 
@@ -190,6 +207,17 @@ export async function requireTenantRole(
 export async function requirePlatformSuperAdmin(): Promise<AuthedProfile> {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
-  if (!profile.isPlatformSuperAdmin) redirect("/app");
+  if (!profile.isPlatformSuperAdmin) {
+    await writeAuditLog({
+      actorProfileId: profile.id,
+      action: "privileged_action.denied",
+      metadata: { requiredRole: "platform_super_admin" },
+    });
+    redirect("/app");
+  }
+  await writeAuditLog({
+    actorProfileId: profile.id,
+    action: "admin.accessed",
+  });
   return profile;
 }

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getSafeRedirectPath } from "@/lib/auth/safe-redirect";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { loginSchema, type LoginInput } from "@/lib/validation/auth";
 
@@ -40,7 +41,7 @@ export default function LoginPage() {
       return;
     }
 
-    const next = searchParams.get("next") ?? "/app";
+    const next = getSafeRedirectPath(searchParams.get("next"));
     router.push(next);
     router.refresh();
   }

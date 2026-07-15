@@ -226,22 +226,32 @@ alter table public.tenant_memberships force row level security;
 alter table public.audit_logs enable row level security;
 alter table public.audit_logs force row level security;
 
+-- Every policy below is preceded by `drop policy if exists` so this
+-- migration can be safely re-run against a database that already has it
+-- applied (see docs/MIGRATION_VALIDATION.md) — Postgres has no
+-- `create policy if not exists`.
+
 -- profiles: a user can read/update their own profile; super admins read all.
+drop policy if exists profiles_select_own on public.profiles;
 create policy profiles_select_own on public.profiles
   for select using (id = auth.uid() or public.is_platform_super_admin());
 
+drop policy if exists profiles_update_own on public.profiles;
 create policy profiles_update_own on public.profiles
   for update using (id = auth.uid()) with check (id = auth.uid());
 
+drop policy if exists profiles_insert_self on public.profiles;
 create policy profiles_insert_self on public.profiles
   for insert with check (id = auth.uid());
 
 -- tenants: readable by members of that tenant, or platform super admins.
+drop policy if exists tenants_select_member on public.tenants;
 create policy tenants_select_member on public.tenants
   for select using (
     public.is_tenant_member(id) or public.is_platform_super_admin()
   );
 
+drop policy if exists tenants_update_owner_admin on public.tenants;
 create policy tenants_update_owner_admin on public.tenants
   for update using (
     public.has_tenant_role(id, array['tenant_owner']) or public.is_platform_super_admin()
@@ -249,39 +259,48 @@ create policy tenants_update_owner_admin on public.tenants
     public.has_tenant_role(id, array['tenant_owner']) or public.is_platform_super_admin()
   );
 
+drop policy if exists tenants_insert_super_admin on public.tenants;
 create policy tenants_insert_super_admin on public.tenants
   for insert with check (public.is_platform_super_admin());
 
 -- roles / permissions: platform-defined reference data, readable by any
 -- authenticated user, writable only by platform super admins.
+drop policy if exists roles_select_authenticated on public.roles;
 create policy roles_select_authenticated on public.roles
   for select using (auth.role() = 'authenticated');
 
+drop policy if exists roles_write_super_admin on public.roles;
 create policy roles_write_super_admin on public.roles
   for all using (public.is_platform_super_admin())
   with check (public.is_platform_super_admin());
 
+drop policy if exists permissions_select_authenticated on public.permissions;
 create policy permissions_select_authenticated on public.permissions
   for select using (auth.role() = 'authenticated');
 
+drop policy if exists permissions_write_super_admin on public.permissions;
 create policy permissions_write_super_admin on public.permissions
   for all using (public.is_platform_super_admin())
   with check (public.is_platform_super_admin());
 
+drop policy if exists role_permissions_select_authenticated on public.role_permissions;
 create policy role_permissions_select_authenticated on public.role_permissions
   for select using (auth.role() = 'authenticated');
 
+drop policy if exists role_permissions_write_super_admin on public.role_permissions;
 create policy role_permissions_write_super_admin on public.role_permissions
   for all using (public.is_platform_super_admin())
   with check (public.is_platform_super_admin());
 
 -- tenant_memberships: a member can see other members of their own tenant(s);
 -- only tenant owners/admins or super admins can write membership rows.
+drop policy if exists tenant_memberships_select_member on public.tenant_memberships;
 create policy tenant_memberships_select_member on public.tenant_memberships
   for select using (
     public.is_tenant_member(tenant_id) or public.is_platform_super_admin()
   );
 
+drop policy if exists tenant_memberships_write_owner_admin on public.tenant_memberships;
 create policy tenant_memberships_write_owner_admin on public.tenant_memberships
   for all using (
     public.has_tenant_role(tenant_id, array['tenant_owner', 'tenant_admin'])
@@ -294,6 +313,7 @@ create policy tenant_memberships_write_owner_admin on public.tenant_memberships
 -- audit_logs: tenant owners/admins can read their tenant's log; super admins
 -- read everything. Inserts happen only via server-side code (service role),
 -- so there is no authenticated insert policy.
+drop policy if exists audit_logs_select_owner_admin on public.audit_logs;
 create policy audit_logs_select_owner_admin on public.audit_logs
   for select using (
     (tenant_id is not null and public.has_tenant_role(tenant_id, array['tenant_owner', 'tenant_admin']))

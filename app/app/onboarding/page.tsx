@@ -1,15 +1,14 @@
-import { ComingSoon } from "@/components/app-shell/coming-soon";
-import { requireCurrentTenantRole } from "@/lib/auth/session";
-import { STAFF_ROLES } from "@/lib/auth/roles";
+import { redirect } from "next/navigation";
+
+import { CreateTenantForm } from "@/components/onboarding/create-tenant-form";
+import { getCurrentProfile, listMyTenantMemberships } from "@/lib/auth/session";
 
 export default async function OnboardingPage() {
-  await requireCurrentTenantRole(STAFF_ROLES);
+  const profile = await getCurrentProfile();
+  if (!profile) redirect("/login");
 
-  return (
-    <ComingSoon
-      title="Onboarding"
-      description="Resumable brand setup wizard."
-      phase="Phase 3"
-    />
-  );
+  const memberships = await listMyTenantMemberships();
+  if (memberships.length > 0) redirect("/app");
+
+  return <CreateTenantForm />;
 }

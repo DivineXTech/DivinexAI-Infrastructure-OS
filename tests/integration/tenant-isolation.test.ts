@@ -3,34 +3,24 @@
  * rows via RLS (see supabase/migrations/20260715000000_foundation.sql and
  * docs/SECURITY.md). Requires a running Supabase instance seeded via
  * `supabase db reset` (which applies supabase/seed/seed.sql) plus
- * `npm run seed` (creates the two demo tenant-owner auth users). Skips
- * automatically when pointed at the placeholder .env.local values so
- * `npm test` stays green without a live backend — see docs/TESTING.md for
- * how to run this for real.
+ * `npm run seed` (creates the demo auth users). Skips automatically when
+ * pointed at the placeholder .env.local values so `npm test` stays green
+ * without a live backend — see docs/TESTING.md for how to run this for
+ * real, and do not confuse a skip with a pass.
  */
-import { createClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const isLiveBackend =
-  !!SUPABASE_URL &&
-  !!ANON_KEY &&
-  !SUPABASE_URL.includes("placeholder") &&
-  ANON_KEY !== "placeholder-anon-key";
-
-const KUSHPRINTCO_TENANT_ID = "11111111-1111-1111-1111-111111111111";
-const ISOLATION_TENANT_ID = "22222222-2222-2222-2222-222222222222";
-const DEMO_PASSWORD = "demo-password-123!";
+import {
+  ISOLATION_TENANT_ID,
+  KUSHPRINTCO_TENANT_ID,
+  TEST_USERS,
+  isLiveBackend,
+  signInAs,
+} from "./helpers";
 
 describe.skipIf(!isLiveBackend)("tenant isolation", () => {
-  it("does not let tenant A's owner read tenant B's membership rows", async () => {
-    const client = createClient(SUPABASE_URL!, ANON_KEY!);
-    const { error: signInError } = await client.auth.signInWithPassword({
-      email: "owner@demo.kushprintco.local",
-      password: DEMO_PASSWORD,
-    });
-    expect(signInError).toBeNull();
+  it("does not let tenant A's owner read tenant B's rows", async () => {
+    const client = await signInAs(TEST_USERS.ownerA);
 
     const { data: ownTenant, error: ownError } = await client
       .from("tenants")

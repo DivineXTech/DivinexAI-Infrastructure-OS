@@ -4,9 +4,27 @@
  * isolation (see docs/SECURITY.md). Never run this against production — it
  * is intentionally not wired into any production build or deploy step.
  *
- * Usage: npm run seed  (requires SUPABASE_SERVICE_ROLE_KEY in .env.local)
+ * Usage: npm run seed  (requires SUPABASE_SERVICE_ROLE_KEY + SEED_MODE_ENABLED=true
+ * in .env.local — see .env.example)
  */
+import { config as loadDotenv } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+
+loadDotenv({ path: ".env.local" });
+
+// Two independent gates, both required — this must not run from a slip of
+// NODE_ENV alone, and it must not run just because service-role
+// credentials happen to be present.
+if (process.env.NODE_ENV === "production") {
+  console.error("Refusing to run the seed script with NODE_ENV=production.");
+  process.exit(1);
+}
+if (process.env.SEED_MODE_ENABLED !== "true") {
+  console.error(
+    "Refusing to run: SEED_MODE_ENABLED is not \"true\". Set SEED_MODE_ENABLED=true in .env.local to allow seeding (see .env.example).",
+  );
+  process.exit(1);
+}
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -15,11 +33,6 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   console.error(
     "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. See .env.example.",
   );
-  process.exit(1);
-}
-
-if (process.env.NODE_ENV === "production") {
-  console.error("Refusing to run the seed script with NODE_ENV=production.");
   process.exit(1);
 }
 
@@ -34,8 +47,10 @@ type DemoUser = {
   email: string;
   password: string;
   fullName: string;
-  tenantId: string;
-  roleKey: string;
+  /** Omit to create the auth user + profile with no tenant membership at
+   * all — used to test the "no tenant yet" onboarding redirect path. */
+  tenantId?: string;
+  roleKey?: string;
 };
 
 const DEMO_USERS: DemoUser[] = [
@@ -81,6 +96,13 @@ const DEMO_USERS: DemoUser[] = [
     tenantId: ISOLATION_TENANT_ID,
     roleKey: "tenant_owner",
   },
+  {
+    email: "no-tenant@demo.kushprintco.local",
+    password: "demo-password-123!",
+    fullName: "Demo User Without A Tenant",
+    // No tenantId/roleKey: exercises the /app/onboarding redirect and the
+    // "user without tenant membership" authentication-validation case.
+  },
 ];
 
 async function main() {
@@ -91,8 +113,8 @@ async function main() {
   const roleIdByKey = new Map(roles.map((r) => [r.key, r.id]));
 
   for (const user of DEMO_USERS) {
-    const roleId = roleIdByKey.get(user.roleKey);
-    if (!roleId) {
+    const roleId = user.roleKey ? roleIdByKey.get(user.roleKey) : undefined;
+    if (user.roleKey && !roleId) {
       throw new Error(
         `Role "${user.roleKey}" not found. Run the base migration + seed.sql first.`,
       );
@@ -128,20 +150,23 @@ async function main() {
     });
     if (profileError) throw profileError;
 
-    const { error: membershipError } = await admin
-      .from("tenant_memberships")
-      .upsert(
-        {
-          tenant_id: user.tenantId,
-          profile_id: profileId,
-          role_id: roleId,
-          status: "active",
-        },
-        { onConflict: "tenant_id,profile_id" },
-      );
-    if (membershipError) throw membershipError;
-
-    console.log(`Seeded ${user.email} (${user.roleKey}) on tenant ${user.tenantId}`);
+    if (user.tenantId && roleId) {
+      const { error: membershipError } = await admin
+        .from("tenant_memberships")
+        .upsert(
+          {
+            tenant_id: user.tenantId,
+            profile_id: profileId,
+            role_id: roleId,
+            status: "active",
+          },
+          { onConflict: "tenant_id,profile_id" },
+        );
+      if (membershipError) throw membershipError;
+      console.log(`Seeded ${user.email} (${user.roleKey}) on tenant ${user.tenantId}`);
+    } else {
+      console.log(`Seeded ${user.email} (no tenant membership, by design)`);
+    }
   }
 
   console.log("\nDemo seed complete. All demo accounts share the password:");

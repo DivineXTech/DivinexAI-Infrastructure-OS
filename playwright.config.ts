@@ -9,7 +9,18 @@ export default defineConfig({
     baseURL: "http://localhost:3000",
     trace: "on-first-retry",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        // This sandbox only has the full Chromium binary pre-installed
+        // (not the headless-shell variant Playwright tries by default),
+        // and downloads are disabled — point directly at it.
+        launchOptions: { executablePath: "/opt/pw-browsers/chromium" },
+      },
+    },
+  ],
   webServer: {
     command: "npm run build && npm run start",
     url: "http://localhost:3000",

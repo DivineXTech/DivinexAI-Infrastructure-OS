@@ -20,6 +20,13 @@ npm run test:e2e     # playwright test (builds + starts the app first)
   `//`, backslash tricks, and embedded control characters.
 - `storage-paths.test.ts` — `buildTenantObjectPath`/`sanitizeFilename`
   path-traversal and filename-sanitization guarantees.
+- `lead-validation.test.ts` — the lead-capture Zod schema (consent must be
+  `true`, honeypot field doesn't block validity).
+- `tenant-validation.test.ts` — tenant slug normalization and the
+  reserved-word list.
+- `pricing-content.test.ts` — guards against someone later hardcoding a
+  fabricated price into `lib/content/pricing.ts` without updating this
+  test intentionally.
 
 Vitest is configured (`vitest.config.ts`) to alias `server-only` and
 `client-only` to a no-op stub (`tests/mocks/no-op-module.ts`) — those
@@ -83,21 +90,40 @@ docs/MIGRATION_VALIDATION.md for the static review that was possible here.
   skipped via an environment check at the top of the file when pointed at
   the placeholder project — same reasoning as the integration tests
   above, just at the Playwright layer instead of Vitest's `describe.skipIf`.
+- `marketing.spec.ts` (Phase 2) — desktop nav, mobile menu, every public
+  route returns 200, sitemap/robots content, the interactive apparel
+  demo's rotate/color/reset controls, the FAQ accordion, pricing's
+  "Request pricing" honesty check, and lead-form validation. The final
+  lead-form test branches on `isLiveBackend`: without a live project it
+  asserts the honest "isn't connected yet" failure message (see
+  `lib/leads/actions.ts`); with one, it would assert the success state
+  instead — same pattern as the integration tests.
 
 `playwright.config.ts` builds and starts the app automatically
-(`npm run build && npm run start`).
+(`npm run build && npm run start`) and pins
+`launchOptions.executablePath` to `/opt/pw-browsers/chromium` — this
+sandbox only has the full Chromium binary preinstalled, not the
+headless-shell variant Playwright's default project tries to launch, and
+downloads are disabled.
 
 ## What's proven vs. not, honestly
 
 **Proven (ran in this environment):** typecheck, lint, all unit tests,
-production build, and a runtime smoke test (`curl` against `npm run
-start` — homepage 200s and renders its heading, `/login`/`/signup` 200,
-unauthenticated `/app` 307s to `/login?next=%2Fapp`).
+production build, a runtime smoke test, and — as of Phase 2 — the full
+Playwright suite actually executed against a running build in a real
+browser: `foundation.spec.ts` (4/4), `marketing.spec.ts` (10/10). That
+covers real routing/redirects, real navigation and mobile-menu
+interaction, the apparel demo's client-side state, the FAQ accordion,
+honest pricing rendering, lead-form client validation, and — importantly
+— that the lead form fails gracefully (not silently, not with a fake
+success) when no Supabase service-role key is configured, which is
+exactly this sandbox's actual state.
 
 **Not proven here (needs a real Supabase project + Docker or a hosted
 dev project):** RLS tenant isolation, storage isolation, the
-privilege-escalation trigger, real signup → email confirmation → login,
-tenant creation via `createTenantAction`, tenant switching, audit-log
-writes. All of the above are implemented and statically reviewed (see
-docs/MIGRATION_VALIDATION.md), not empirically verified. Do not report
-otherwise.
+privilege-escalation trigger, real signup → email confirmation → login
+(`auth-flow.spec.ts` skips these), tenant creation via
+`createTenantAction`, tenant switching, audit-log writes, and lead rows
+actually persisting to a `leads` table. All of the above are implemented
+and statically reviewed (see docs/MIGRATION_VALIDATION.md), not
+empirically verified. Do not report otherwise.

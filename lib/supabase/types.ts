@@ -144,6 +144,53 @@ export type Database = {
         Update: never;
         Relationships: Relationship[];
       };
+      leads: {
+        Row: {
+          id: string;
+          lead_type:
+            | "general_contact"
+            | "consultation_request"
+            | "startup_kit_interest"
+            | "equipment_interest"
+            | "white_label_interest"
+            | "early_access_signup";
+          full_name: string;
+          email: string;
+          message: string | null;
+          consent_given: boolean;
+          source: string | null;
+          utm_source: string | null;
+          utm_medium: string | null;
+          utm_campaign: string | null;
+          metadata: Json;
+          status: "new" | "contacted" | "closed";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          lead_type:
+            | "general_contact"
+            | "consultation_request"
+            | "startup_kit_interest"
+            | "equipment_interest"
+            | "white_label_interest"
+            | "early_access_signup";
+          full_name: string;
+          email: string;
+          message?: string | null;
+          consent_given?: boolean;
+          source?: string | null;
+          utm_source?: string | null;
+          utm_medium?: string | null;
+          utm_campaign?: string | null;
+          metadata?: Json;
+          status?: "new" | "contacted" | "closed";
+        };
+        Update: {
+          status?: "new" | "contacted" | "closed";
+        };
+        Relationships: Relationship[];
+      };
     };
     Views: Record<string, never>;
     Functions: {

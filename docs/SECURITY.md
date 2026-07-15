@@ -226,6 +226,21 @@ embedded control characters. Covered by
 parameter anywhere in the app must go through this helper — never
 `router.push(rawQueryParamValue)`.
 
+## Public lead capture (Phase 2)
+
+`leads` (`supabase/migrations/20260717000000_leads.sql`) is the one table
+that intentionally allows anonymous inserts — public marketing-site forms
+(contact, consultation, startup-kit/equipment/white-label interest,
+early-access) submit before any account exists. RLS still applies:
+`leads_insert_public` allows `insert` to `anon`/`authenticated` with no
+read-back, and `leads_select_super_admin` restricts all reads to platform
+super admins — a submitter cannot read their own or anyone else's lead
+row after submitting. `lib/leads/actions.ts` (`submitLeadAction`)
+re-validates every field server-side via `lib/validation/lead.ts`
+regardless of client-side validation, and runs a honeypot spam check
+(`lib/leads/spam-prevention.ts`) before writing — a tripped honeypot
+returns a fake success rather than revealing which check it failed.
+
 ## Input validation
 
 All forms (login, signup, create-tenant) validate with Zod schemas

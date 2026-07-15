@@ -15,6 +15,10 @@ what still needs to run once a real project is available, and how.
 3. `20260716010000_prevent_privilege_escalation.sql` — trigger closing the
    `is_platform_super_admin` self-escalation hole (found during this
    Phase 1.5 review — see docs/SECURITY.md).
+4. `20260717000000_leads.sql` (Phase 2) — public lead-capture table, with
+   an anon-insert / super-admin-only-read RLS policy pair (the one
+   deliberate exception to "no anonymous access" — see docs/SECURITY.md
+   "Public lead capture").
 
 Applied in this order via filename timestamp, which is how Supabase's
 migration tooling (`supabase db push` / `supabase migration up`) sequences

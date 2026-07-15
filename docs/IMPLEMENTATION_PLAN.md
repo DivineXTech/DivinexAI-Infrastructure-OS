@@ -186,9 +186,10 @@ branding is injected via `tenant_brand_settings` at render time.
 | Phase | Deliverable | Status |
 |---|---|---|
 | 0 | Repository audit + this plan | **Complete** |
-| 1 | App shell, design system, auth, tenant/membership/role model, RLS, env validation, error boundaries | **In progress this session** |
-| 2 | Public marketing website | Not started |
-| 3 | Onboarding + brand setup | Not started |
+| 1 | App shell, design system, auth, tenant/membership/role model, RLS, env validation, error boundaries | **Complete** |
+| 1.5 | Supabase validation hardening (security fixes, storage RLS, tenant provisioning, audit logging) | **Complete (implementation) — live verification blocked on Supabase project access, see docs/SECURITY.md** |
+| 2 | Public marketing website | **Complete** |
+| 3 | Onboarding + brand setup | Partially started (tenant-creation step of onboarding shipped in Phase 1.5; the full multi-step wizard is still open) |
 | 4 | Product + design studio | Not started |
 | 5 | Commerce + storefront | Not started |
 | 6 | Production operations | Not started |

@@ -1,9 +1,14 @@
 # Database
 
-Postgres via Supabase. Phase 1 ships one migration:
-`supabase/migrations/20260715000000_foundation.sql`.
+Postgres via Supabase. Four migrations so far, in order — see
+docs/MIGRATION_VALIDATION.md for the full validation record:
 
-## Tables (Phase 1)
+1. `20260715000000_foundation.sql`
+2. `20260716000000_storage.sql`
+3. `20260716010000_prevent_privilege_escalation.sql`
+4. `20260717000000_leads.sql`
+
+## Tables
 
 | Table | Purpose | Tenant-scoped? |
 |---|---|---|
@@ -14,6 +19,7 @@ Postgres via Supabase. Phase 1 ships one migration:
 | `role_permissions` | Join table, `roles` ↔ `permissions`. | No |
 | `tenant_memberships` | Join table, `profiles` ↔ `tenants`, with a `role_id`. This is what every RLS policy below joins through. | Yes (`tenant_id`) |
 | `audit_logs` | Append-only privileged-action trail. | Yes (`tenant_id`, nullable for platform-level actions) |
+| `leads` (Phase 2) | Public lead-capture submissions (contact, consultation, kit/equipment/white-label interest, early access). | No (pre-tenant; submitted by anonymous visitors) |
 
 Later-phase tables are listed in `docs/IMPLEMENTATION_PLAN.md` §4 and will
 ship as their own migrations when the corresponding phase starts — this

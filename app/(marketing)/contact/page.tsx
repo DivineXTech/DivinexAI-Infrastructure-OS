@@ -1,14 +1,34 @@
-export const metadata = { title: "Contact" };
+import type { Metadata } from "next";
+
+import { LeadForm } from "@/components/marketing/lead-form";
+import { PageHeader } from "@/components/marketing/page-header";
+import { contact } from "@/lib/content/company";
+
+export const metadata: Metadata = {
+  title: "Contact",
+  description: "Get in touch with the KushPrintCo OS team.",
+  alternates: { canonical: "/contact" },
+};
 
 export default function ContactPage() {
   return (
-    <div className="mx-auto max-w-2xl px-6 py-16">
-      <h1 className="text-2xl font-semibold text-ink">Contact us</h1>
-      <p className="mt-4 text-sm text-ink-muted">
-        The full contact and lead-capture form ships with the marketing
-        website build. In the meantime, reach the team through the channels
-        shared directly with you.
-      </p>
-    </div>
+    <>
+      <PageHeader
+        eyebrow="Contact"
+        title="Get in touch"
+        description="Have a question that doesn't fit a consultation? Send us a message and we'll follow up by email."
+      />
+      <section className="mx-auto max-w-lg px-6 py-16">
+        <LeadForm leadType="general_contact" source="contact-page" submitLabel="Send Message" />
+        {contact.email ? (
+          <p className="mt-6 text-center text-sm text-ink-subtle">
+            Or email us directly at{" "}
+            <a href={`mailto:${contact.email}`} className="underline">
+              {contact.email}
+            </a>
+          </p>
+        ) : null}
+      </section>
+    </>
   );
 }

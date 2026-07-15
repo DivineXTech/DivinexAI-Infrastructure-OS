@@ -3,8 +3,13 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { writeAuditLog } from "@/lib/audit/log";
+import { resolveCurrentTenantMembership } from "@/lib/auth/tenant-selection";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { RoleKey } from "@/lib/auth/roles";
+import type { TenantMembership } from "@/lib/auth/tenant-selection";
+
+export { resolveCurrentTenantMembership };
+export type { TenantMembership };
 
 /** Not httpOnly: the tenant switcher (a Client Component) reads it for
  * optimistic UI; it only ever holds a non-sensitive slug, and every read is
@@ -15,14 +20,6 @@ export type AuthedProfile = {
   id: string;
   fullName: string | null;
   isPlatformSuperAdmin: boolean;
-};
-
-export type TenantMembership = {
-  tenantId: string;
-  tenantSlug: string;
-  tenantName: string;
-  roleKey: RoleKey;
-  status: "active" | "invited" | "suspended";
 };
 
 /**
@@ -59,13 +56,25 @@ export async function getCurrentProfile(): Promise<AuthedProfile | null> {
  * `Relationships` metadata from a real generated Database type, which
  * lib/supabase/types.ts intentionally doesn't hand-maintain — see its file
  * header). Tenant/role names are then resolved in a second pass.
+ *
+ * Explicitly filters by `profile_id`. This is deliberate, not redundant
+ * with RLS: `tenant_memberships_select_member` authorizes a row by "is the
+ * caller an active member of this row's tenant_id" (so tenant
+ * owners/admins can legitimately list *other* members for team-management
+ * features), not "is this the caller's own row." A function whose
+ * contract is "my memberships" must not assume table-level RLS narrows
+ * results to the caller's own rows — it doesn't, and previously didn't
+ * here, which let one member's session resolve another member's row (and
+ * role) as its own. See docs/SECURITY.md.
  */
 async function fetchMyActiveMembershipRows(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  profileId: string,
 ) {
   const { data: memberships } = await supabase
     .from("tenant_memberships")
     .select("tenant_id, role_id, status")
+    .eq("profile_id", profileId)
     .eq("status", "active");
   if (!memberships || memberships.length === 0) return [];
 
@@ -98,44 +107,60 @@ async function fetchMyActiveMembershipRows(
 }
 
 /**
- * Loads the caller's membership + role for a specific tenant. Relies on
- * `tenant_memberships` RLS (a user can only see rows for tenants they
- * belong to), so an empty result reliably means "not a member" rather than
- * "hidden by a client-side check."
+ * Resolves the authenticated caller's id, without the extra `profiles`
+ * table round trip `getCurrentProfile()` does — callers here only need the
+ * id to scope a `tenant_memberships` query to "mine."
+ */
+async function getCurrentUserId(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+): Promise<string | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.id ?? null;
+}
+
+/**
+ * Loads the caller's membership + role for a specific tenant. Scoped to the
+ * caller's own `profile_id` (see `fetchMyActiveMembershipRows`), so an
+ * empty result reliably means "not a member" rather than "hidden by a
+ * client-side check" — and never another member's row for that tenant.
  */
 export async function getTenantMembership(
   tenantSlug: string,
 ): Promise<TenantMembership | null> {
   const supabase = await createSupabaseServerClient();
-  const all = await fetchMyActiveMembershipRows(supabase);
+  const userId = await getCurrentUserId(supabase);
+  if (!userId) return null;
+  const all = await fetchMyActiveMembershipRows(supabase, userId);
   return all.find((m) => m.tenantSlug === tenantSlug) ?? null;
 }
 
 /**
- * Lists every tenant the current user actively belongs to. Used to pick a
- * default tenant and to power the tenant switcher — RLS already scopes this
- * to the caller's own memberships.
+ * Lists every tenant the current user actively belongs to — and only the
+ * current user's own membership row per tenant (see
+ * `fetchMyActiveMembershipRows`). Used to pick a default tenant and to
+ * power the tenant switcher.
  */
 export async function listMyTenantMemberships(): Promise<TenantMembership[]> {
   const supabase = await createSupabaseServerClient();
-  return fetchMyActiveMembershipRows(supabase);
+  const userId = await getCurrentUserId(supabase);
+  if (!userId) return [];
+  return fetchMyActiveMembershipRows(supabase, userId);
 }
 
 /**
- * Resolves which tenant the current request should act on: the tenant
- * matching the `kpc_tenant_slug` cookie (set by the tenant switcher), or
- * the user's first active membership if the cookie is unset/stale/points
- * at a tenant they've since lost access to. Layouts cannot read
- * `searchParams`, so the cookie is the mechanism for "current tenant"
- * rather than a query string.
+ * Resolves which tenant the current request should act on. Layouts cannot
+ * read `searchParams`, so the cookie is the mechanism for "current tenant"
+ * rather than a query string. Prefer `resolveCurrentTenantMembership`
+ * directly when `memberships` has already been fetched in the same
+ * request.
  */
 export async function getCurrentTenantMembership(): Promise<TenantMembership | null> {
   const memberships = await listMyTenantMemberships();
-  if (memberships.length === 0) return null;
-
   const cookieStore = await cookies();
   const preferredSlug = cookieStore.get(CURRENT_TENANT_COOKIE)?.value;
-  return memberships.find((m) => m.tenantSlug === preferredSlug) ?? memberships[0];
+  return resolveCurrentTenantMembership(memberships, preferredSlug);
 }
 
 /**

@@ -1,10 +1,12 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell/app-shell";
 import {
+  CURRENT_TENANT_COOKIE,
   getCurrentProfile,
-  getCurrentTenantMembership,
   listMyTenantMemberships,
+  resolveCurrentTenantMembership,
 } from "@/lib/auth/session";
 import { APP_NAV, filterNavByRole } from "@/lib/navigation";
 
@@ -32,7 +34,20 @@ export default async function AppLayout({
     );
   }
 
-  const current = (await getCurrentTenantMembership())!;
+  // Resolved from the `memberships` array already fetched above, not a
+  // second Supabase round trip — avoids both the extra query and a
+  // time-of-check/time-of-use gap where membership could change between
+  // two independent fetches in the same request.
+  const cookieStore = await cookies();
+  const preferredSlug = cookieStore.get(CURRENT_TENANT_COOKIE)?.value;
+  const current = resolveCurrentTenantMembership(memberships, preferredSlug);
+  if (!current) {
+    // Structurally unreachable given memberships.length > 0 above and no
+    // re-fetch in between — handled explicitly rather than asserted away,
+    // in case that invariant ever changes.
+    redirect("/app/onboarding");
+  }
+
   const navItems = filterNavByRole(APP_NAV, current.roleKey);
 
   return (

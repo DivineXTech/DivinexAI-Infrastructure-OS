@@ -103,6 +103,26 @@ const DEMO_USERS: DemoUser[] = [
     // No tenantId/roleKey: exercises the /app/onboarding redirect and the
     // "user without tenant membership" authentication-validation case.
   },
+  // Two entries, same email, different tenant — exercises "a user
+  // belonging to two tenants receives exactly their own two memberships"
+  // (tests/integration/membership-isolation.test.ts). The second entry's
+  // createUser call hits the "already registered" branch below and reuses
+  // the same profileId, then inserts a second, distinct tenant_memberships
+  // row for it.
+  {
+    email: "multi-tenant@demo.kushprintco.local",
+    password: "demo-password-123!",
+    fullName: "Demo Multi-Tenant Member",
+    tenantId: KUSHPRINTCO_TENANT_ID,
+    roleKey: "designer",
+  },
+  {
+    email: "multi-tenant@demo.kushprintco.local",
+    password: "demo-password-123!",
+    fullName: "Demo Multi-Tenant Member",
+    tenantId: ISOLATION_TENANT_ID,
+    roleKey: "tenant_owner",
+  },
 ];
 
 async function main() {

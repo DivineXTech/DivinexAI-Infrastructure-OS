@@ -12,11 +12,14 @@ Primary promise: *"Launch Your Clothing Brand. We Supply Everything."*
 
 ## Status
 
-Phase 1 (Foundation) complete: authentication, tenant/membership/role model
-with Row-Level Security, the app/admin shells, and the service
-abstractions payments and DivinexAI integrations will plug into. See
-`docs/ROADMAP.md` for what's next and `docs/IMPLEMENTATION_PLAN.md` for the
-full build sequence.
+Phases 0–2 complete: foundation (auth, tenant/membership/role model with
+Row-Level Security, app/admin shells), a security-hardening pass (storage
+RLS, tenant provisioning, audit logging, plus a privilege-escalation fix
+and a membership row-scoping fix found in review), and the public
+marketing website (16-section homepage, all public routes, lead capture).
+See `docs/ROADMAP.md` for what's next, `docs/IMPLEMENTATION_PLAN.md` for
+the full build sequence, and `docs/TECH_DEBT.md` for the bounded cleanup
+batch deferred out of the pre-Phase-3 review.
 
 ## Getting started
 
@@ -57,7 +60,9 @@ npm run seed        # creates demo auth users (dev-only, see scripts/seed.ts)
 - `docs/IMPLEMENTATION_PLAN.md` — route map, database model, phase plan
 - `docs/ARCHITECTURE.md` — stack, execution contexts, directory layout
 - `docs/DATABASE.md` — schema conventions, migrations, seeding
-- `docs/SECURITY.md` — tenant isolation, RLS, secrets handling
+- `docs/MIGRATION_VALIDATION.md` — migration review record, recovery procedure
+- `docs/SECURITY.md` — tenant isolation, RLS, secrets handling, fixed bugs
+- `docs/TECH_DEBT.md` — bounded cleanup batch from the pre-Phase-3 review
 - `docs/ROLES_AND_PERMISSIONS.md` — role model and where checks live
 - `docs/PAYMENTS.md` — provider-neutral payments abstraction
 - `docs/DIVINEXAI_INTEGRATION.md` — DivinexAI service interfaces

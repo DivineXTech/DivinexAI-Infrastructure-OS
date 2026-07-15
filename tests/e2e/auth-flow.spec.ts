@@ -8,9 +8,7 @@
  */
 import { test, expect } from "@playwright/test";
 
-const isLiveBackend =
-  !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder");
+import { isLiveBackend } from "../shared/backend-env";
 
 const run = isLiveBackend ? test : test.skip;
 

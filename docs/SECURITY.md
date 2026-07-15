@@ -32,8 +32,9 @@ the role server-side independently.
 
 ### Proving isolation
 
-`tests/integration/tenant-isolation.test.ts` and
-`tests/integration/rls-authorization.test.ts` sign in as each seeded
+`tests/integration/tenant-isolation.test.ts`,
+`tests/integration/rls-authorization.test.ts`, and
+`tests/integration/membership-isolation.test.ts` sign in as each seeded
 persona (see `scripts/seed.ts`) and assert, at minimum:
 
 - a tenant owner's own tenant row is readable; the other seeded tenant is not,
@@ -48,6 +49,9 @@ persona (see `scripts/seed.ts`) and assert, at minimum:
   table,
 - Storage: a tenant member cannot read/write another tenant's objects in
   any tenant-scoped bucket.
+- a designer and a tenant owner in the same tenant each resolve only their
+  own role, never each other's (see "Membership row-scoping fix" below),
+  and a user in two tenants gets exactly those two memberships back.
 
 **These tests are skipped, not passed, in this sandbox** — there is no
 Docker daemon (`supabase start` needs one) and no Supabase project
@@ -87,6 +91,86 @@ Both are documented rather than fixed in this pass — they don't cross the
 platform-privilege boundary the rest of this document is about, and
 fixing them well needs role-hierarchy logic (e.g. "only an owner can grant
 owner") that doesn't exist as a concept anywhere else in the schema yet.
+
+## Membership row-scoping fix (found during pre-Phase-3 review)
+
+A second, distinct invariant beyond cross-tenant isolation: **within** a
+tenant a user legitimately belongs to, they must only ever resolve to
+*their own* membership row and role — never another member's. A
+high-effort code review ahead of Phase 3 found that `lib/auth/session.ts`'s
+`fetchMyActiveMembershipRows` (the query underlying `listMyTenantMemberships`
+and `getCurrentTenantMembership`) filtered only by `status = 'active'`,
+with no `profile_id` filter, relying entirely on RLS. But
+`tenant_memberships_select_member` authorizes a row by "is the caller an
+active member of this row's `tenant_id`" — deliberately, so tenant
+owners/admins can list *other* members for team-management features — not
+"is this the caller's own row." A function whose contract is "my
+memberships" cannot assume table-level RLS narrows results to the
+caller's own rows; here it didn't, so a lower-privileged member's session
+could resolve a co-member's row (and role) as its own, e.g. a designer's
+`getCurrentTenantMembership()` picking the tenant owner's row via `.find()
+?? [0]` when the owner's row happened to sort first — granting
+app-level access to owner/admin-only routes (`/app/billing`, `/app/team`,
+`/app/settings`) and corrupting the tenant switcher with duplicate/foreign
+entries.
+
+Fixed by adding an explicit `.eq("profile_id", callerId)` filter in
+`fetchMyActiveMembershipRows` (`lib/auth/session.ts`) — the caller's id is
+resolved via `supabase.auth.getUser()`, never trusted from client input.
+The underlying RLS policy was deliberately left unchanged: it's correctly
+broad for future team-management reads, and the fix is that **session and
+authorization code must not treat that breadth as a substitute for
+caller-specific filtering** — the same principle applies to any future
+function whose contract is "my X" over a table with membership-style RLS.
+
+A related, smaller issue in the same area: `app/app/layout.tsx` was
+calling `listMyTenantMemberships()` and then, separately,
+`getCurrentTenantMembership()` (which internally re-fetches the same
+list), non-null-asserting the second call's result. Beyond the redundant
+Supabase round trip, this was a time-of-check/time-of-use gap — the
+second fetch is not guaranteed to agree with the first if membership
+changes mid-request. Fixed by extracting the pure selection logic into
+`lib/auth/tenant-selection.ts` (`resolveCurrentTenantMembership`, which
+has no I/O or side-effecting imports, so it can be unit-tested directly —
+`tests/unit/tenant-selection.test.ts`) and having the layout resolve
+"current tenant" from the single `memberships` array it already fetched,
+with a deterministic redirect instead of an assertion if resolution
+somehow still fails.
+
+Regression coverage: `tests/integration/membership-isolation.test.ts`
+(skips without a live project, same as the rest of this file's tests)
+proves a designer and owner in the same tenant each resolve their own
+distinct role, and that a user belonging to two tenants gets exactly
+those two memberships with no duplicates.
+
+### Audit of other session/authorization queries for the same pattern
+
+Every other query in `lib/auth/session.ts` and `lib/audit/log.ts` was
+re-checked for "does this rely on tenant-wide RLS where it should filter
+by caller identity instead":
+
+- `getCurrentProfile()` — queries `profiles` `.eq("id", user.id)`, already
+  caller-scoped by primary key, not by RLS breadth. Fine.
+- `getTenantMembership(tenantSlug)` — now goes through the fixed
+  `fetchMyActiveMembershipRows`, inheriting the `profile_id` filter. Fine.
+- `requireTenantRole` / `requireCurrentTenantRole` /
+  `requirePlatformSuperAdmin` — all resolve identity via
+  `getCurrentProfile()`/`getCurrentTenantMembership()`, both now correctly
+  scoped; they don't run their own unscoped queries. Fine.
+- `writeAuditLog` (`lib/audit/log.ts`) — uses the service-role client for
+  inserts, which bypasses RLS entirely by design (see "Audit logging"
+  below); it never reads `audit_logs` on the caller's behalf, so there's
+  no analogous "my rows" contract to violate.
+- `createTenantAction` (`app/app/onboarding/actions.ts`) — its uniqueness
+  and role-lookup queries use the service-role client and query by
+  `slug`/`key` (not by caller identity), so caller-scoping doesn't apply
+  the same way; the actual trust boundary there is "the granted role is
+  hardcoded and the profile id comes from the session," already covered
+  under "Tenant provisioning" below.
+
+No other instance of the same class of bug (a "my X" contract satisfied
+by assuming RLS narrows to the caller instead of an explicit filter) was
+found.
 
 ## Tenant provisioning
 

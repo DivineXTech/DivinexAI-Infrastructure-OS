@@ -1,8 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const isLiveBackend =
-  !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder");
+import { isLiveBackend } from "../shared/backend-env";
 
 test.describe("public navigation", () => {
   test("desktop nav links reach their pages", async ({ page }) => {

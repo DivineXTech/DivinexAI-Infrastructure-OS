@@ -6,17 +6,15 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-export const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-export const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+import {
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY as ANON_KEY,
+  SUPABASE_SERVICE_ROLE_KEY as SERVICE_ROLE_KEY,
+  isLiveBackend,
+  hasServiceRole,
+} from "../shared/backend-env";
 
-export const isLiveBackend =
-  !!SUPABASE_URL &&
-  !!ANON_KEY &&
-  !SUPABASE_URL.includes("placeholder") &&
-  ANON_KEY !== "placeholder-anon-key";
-
-export const hasServiceRole = isLiveBackend && !!SERVICE_ROLE_KEY;
+export { SUPABASE_URL, ANON_KEY, SERVICE_ROLE_KEY, isLiveBackend, hasServiceRole };
 
 export const KUSHPRINTCO_TENANT_ID = "11111111-1111-1111-1111-111111111111";
 export const ISOLATION_TENANT_ID = "22222222-2222-2222-2222-222222222222";
@@ -34,6 +32,8 @@ export const TEST_USERS = {
     process.env.TEST_USER_OWNER_B_EMAIL ?? "owner@demo.isolation-tenant.local",
   noTenant:
     process.env.TEST_USER_NO_TENANT_EMAIL ?? "no-tenant@demo.kushprintco.local",
+  multiTenant:
+    process.env.TEST_USER_MULTI_TENANT_EMAIL ?? "multi-tenant@demo.kushprintco.local",
 } as const;
 
 /** A fresh anon-key client, signed in as the given seeded persona. */

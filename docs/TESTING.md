@@ -27,6 +27,22 @@ npm run test:e2e     # playwright test (builds + starts the app first)
 - `pricing-content.test.ts` — guards against someone later hardcoding a
   fabricated price into `lib/content/pricing.ts` without updating this
   test intentionally.
+- `tenant-selection.test.ts` — `resolveCurrentTenantMembership`
+  (`lib/auth/tenant-selection.ts`), the pure tenant-resolution logic
+  extracted from `lib/auth/session.ts` during the pre-Phase-3 review fix
+  specifically so it could be unit-tested without pulling in the
+  Supabase/env/cookies() chain (which requires a configured environment
+  just to import — see the note below). Covers the empty-list case
+  (deterministic `null`, never a crash), slug matching, stale-cookie
+  fallback, and multi-tenant switching.
+
+Note on testability: `lib/auth/session.ts` validates required env vars at
+*import* time (via `lib/env.ts`), so importing it directly in a Vitest
+unit test throws immediately unless `NEXT_PUBLIC_SUPABASE_URL`/
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` are set — this is why pure logic that
+needs to be unit-testable (like tenant resolution) is factored into its
+own side-effect-free module rather than tested via the session module
+directly.
 
 Vitest is configured (`vitest.config.ts`) to alias `server-only` and
 `client-only` to a no-op stub (`tests/mocks/no-op-module.ts`) — those
@@ -54,6 +70,12 @@ every file below.
   overwrite another tenant's object in a private bucket; requires
   `SUPABASE_SERVICE_ROLE_KEY` (used only to seed/clean up the test
   object, never for the isolation assertions themselves).
+- `membership-isolation.test.ts` — regression coverage for the
+  pre-Phase-3 membership row-scoping fix (see docs/SECURITY.md): a
+  designer and owner in the same tenant each resolve only their own role,
+  and the `multi-tenant@demo.kushprintco.local` persona (added to
+  `scripts/seed.ts` alongside this fix) gets exactly its own two
+  memberships back with no duplicates.
 
 To actually run all three:
 

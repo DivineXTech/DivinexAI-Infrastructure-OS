@@ -325,6 +325,42 @@ regardless of client-side validation, and runs a honeypot spam check
 (`lib/leads/spam-prevention.ts`) before writing — a tripped honeypot
 returns a fake success rather than revealing which check it failed.
 
+## Onboarding wizard authorization (Phase 3)
+
+`supabase/migrations/20260718000000_onboarding.sql` adds 11 tenant-owned
+tables (see docs/DATABASE.md). Every one enables and forces RLS,
+default-deny, with the same `has_tenant_role()`/`is_platform_super_admin()`
+helper functions the foundation migration defined — no parallel
+authorization implementation was added. Full role matrix and rationale in
+docs/ONBOARDING.md "Authorization model"; summary:
+
+- `tenant_owner`/`tenant_admin`: full read+write on every table.
+- `designer`: read-only on `brand_profiles`/`brand_product_preferences`
+  only (matches the review page's `visibleSections` for that role exactly).
+- `production_manager`: read-only on `production_preferences` only.
+- `budget_profiles`, `startup_kit_recommendations`,
+  `launch_readiness_assessments`: owner/admin only, no broader read —
+  these carry the most sensitive planning detail (financials, the
+  readiness score derived in part from budget data).
+- Every other role: denied everywhere.
+
+Application-layer enforcement mirrors this rather than substituting for
+it: `lib/onboarding/guard.ts`'s `requireOnboardingStepAccess` (edit wizard,
+owner/admin only) and `requireOnboardingReviewAccess` (review page,
+broader read-scoped roles) both resolve the caller's role from their own
+authenticated session — never from client input — the same contract
+`61b1b83` established for tenant membership resolution. The role→section
+mapping itself is factored into a pure, unit-tested module
+(`lib/onboarding/review-access.ts`, `tests/unit/onboarding-review-access.test.ts`)
+precisely so a future change to that mapping can't silently drift from
+what's tested, the same class of bug the membership row-scoping fix
+addressed. A denied access attempt on the review page writes a
+`privileged_action.denied` audit log entry.
+
+Logo uploads go through the existing `logos` Storage bucket (Phase 1.5),
+scoped via `buildTenantObjectPath` — same path-safety and RLS guarantees
+as every other bucket, no new upload code path bypassing them.
+
 ## Input validation
 
 All forms (login, signup, create-tenant) validate with Zod schemas
@@ -334,7 +370,7 @@ client form and the Server Action that actually performs the mutation —
 client-side form already checked, since a client can always bypass
 client-side checks.
 
-## Known gaps at the end of Phase 1.5
+## Known gaps at the end of Phase 1.5 (still open through Phase 3)
 
 - **Live verification is still outstanding.** Everything above describing
   RLS, storage, and authorization behavior is a description of the code as
@@ -342,7 +378,11 @@ client-side checks.
   Supabase project in this environment (no Docker daemon, no credentials).
   Do not treat any of it as empirically verified until
   `tests/integration/*` have actually run and passed against a real
-  project — see docs/TESTING.md and docs/MIGRATION_VALIDATION.md.
+  project — see docs/TESTING.md and docs/MIGRATION_VALIDATION.md. This
+  applies equally to the Phase 3 onboarding tables/RLS/logo-storage
+  authorization: `tests/integration/onboarding-isolation.test.ts` and
+  `tests/e2e/onboarding-flow.spec.ts` are written and skip cleanly without
+  a live backend, exactly like the tests above — not yet executed.
 - Rate limiting is not implemented (no abstraction yet either). Needed
   before auth endpoints or any public form goes to production.
 - Audit logging fails soft when the service-role key is missing (see

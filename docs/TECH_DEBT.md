@@ -67,3 +67,33 @@ Not included above (reviewed and found to be non-issues): the FAQ/JSON-LD
 structure, the apparel demo's SVG rendering, migration idempotency, and
 CLAUDE.md/AGENTS.md convention compliance — all clean per the same review
 pass.
+
+## Phase 3 — known limitations, recorded rather than deferred silently
+
+9. **`onboarding.brand_slug_changed` audit action is unused.** The action
+   key exists in `lib/audit/log.ts`'s `AuditAction` union per the spec's
+   required audit-event list, but no UI in this phase edits a separate
+   storefront/brand slug (brand identity in this phase covers name,
+   colors, typography, personality — not a URL slug). Fix when a
+   brand-slug-editing surface actually ships (likely Phase 4/5 storefront
+   work); don't wire a fake trigger just to exercise the key.
+10. **Startup-kit and launch-readiness engines are not `cache()`-wrapped.**
+    Both are pure and cheap (no I/O), so this isn't a correctness issue,
+    but the review page recomputes `calculateLaunchReadiness` from four
+    parallel data-access reads on every load rather than memoizing within
+    a request. Same shape as tech-debt item 1 above; worth doing together.
+11. **Age ranges, style preferences, shipping regions, and payment-method
+    keys are UI-local constants, not database-checked enums.** Unlike
+    `PRODUCT_CATEGORIES`/`CUSTOMER_TYPES` (validated via Zod enum against
+    the migration's own check constraints), these four are plain
+    `text[]`/`jsonb` columns with the allowed-values list only living in
+    the form components (`components/onboarding/audience-form.tsx`,
+    `fulfillment-form.tsx`, `storefront-form.tsx`). Acceptable for a
+    bounded planning phase where these are descriptive tags, not
+    values other tables join against — worth tightening if Phase 4+ ever
+    needs to query by them.
+12. **Dollar-to-cents conversion lives in each form component
+    individually** (`products-form.tsx`, `budget-form.tsx`) rather than a
+    shared currency-input helper. Three near-identical `Math.round(x * 100)`
+    call sites; low risk (all covered by the same Zod schemas
+    server-side) but worth consolidating if a fourth money field shows up.

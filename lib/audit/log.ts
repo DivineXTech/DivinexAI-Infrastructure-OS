@@ -16,7 +16,17 @@ export type AuditAction =
   | "tenant.switched"
   | "admin.accessed"
   | "privileged_action.denied"
-  | "settings.changed";
+  | "settings.changed"
+  | "onboarding.started"
+  | "onboarding.step_completed"
+  | "onboarding.step_edited"
+  | "onboarding.brand_slug_changed"
+  | "onboarding.logo_uploaded"
+  | "onboarding.logo_removed"
+  | "onboarding.startup_kit_recommended"
+  | "onboarding.startup_kit_overridden"
+  | "onboarding.completed"
+  | "onboarding.reopened";
 
 export type AuditLogEntry = {
   tenantId?: string | null;

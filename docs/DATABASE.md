@@ -1,12 +1,13 @@
 # Database
 
-Postgres via Supabase. Four migrations so far, in order — see
+Postgres via Supabase. Five migrations so far, in order — see
 docs/MIGRATION_VALIDATION.md for the full validation record:
 
 1. `20260715000000_foundation.sql`
 2. `20260716000000_storage.sql`
 3. `20260716010000_prevent_privilege_escalation.sql`
 4. `20260717000000_leads.sql`
+5. `20260718000000_onboarding.sql` (Phase 3)
 
 ## Tables
 
@@ -20,8 +21,20 @@ docs/MIGRATION_VALIDATION.md for the full validation record:
 | `tenant_memberships` | Join table, `profiles` ↔ `tenants`, with a `role_id`. This is what every RLS policy below joins through. | Yes (`tenant_id`) |
 | `audit_logs` | Append-only privileged-action trail. | Yes (`tenant_id`, nullable for platform-level actions) |
 | `leads` (Phase 2) | Public lead-capture submissions (contact, consultation, kit/equipment/white-label interest, early access). | No (pre-tenant; submitted by anonymous visitors) |
+| `onboarding_sessions` (Phase 3) | One onboarding wizard session per tenant; tracks status, current step, completion %. | Yes (`tenant_id`, unique) |
+| `onboarding_step_progress` (Phase 3) | Per-step completion marker; source of truth for step locking/resume. | Yes (`tenant_id`) |
+| `brand_profiles` (Phase 3) | Name, logo, colors, typography, personality. | Yes (`tenant_id`, unique) |
+| `brand_audiences` (Phase 3) | Customer types, age ranges, market type, style preferences. | Yes (`tenant_id`, unique) |
+| `brand_product_preferences` (Phase 3) | Categories, launch quantity, design count, price range, sales model. | Yes (`tenant_id`, unique) |
+| `production_preferences` (Phase 3) | Method, experience level, workspace, volume, equipment owned. | Yes (`tenant_id`, unique) |
+| `budget_profiles` (Phase 3) | Budget band + optional precise total/8-line allocation (checked: allocation sum ≤ total). | Yes (`tenant_id`, unique) |
+| `startup_kit_recommendations` (Phase 3) | Deterministic engine output + founder's final selection/override flag. | Yes (`tenant_id`, unique) |
+| `storefront_preferences` (Phase 3) | Name, theme, domain status, planned payment methods. | Yes (`tenant_id`, unique) |
+| `fulfillment_preferences` (Phase 3) | Model, lead time, shipping regions, return policy, QC. | Yes (`tenant_id`, unique) |
+| `launch_readiness_assessments` (Phase 3) | Cached 0–100 score + category breakdown, owner/admin read only. | Yes (`tenant_id`, unique) |
 
-Later-phase tables are listed in `docs/IMPLEMENTATION_PLAN.md` §4 and will
+See docs/ONBOARDING.md for the full Phase 3 authorization/resumability
+model. Later-phase tables are listed in `docs/IMPLEMENTATION_PLAN.md` §4 and will
 ship as their own migrations when the corresponding phase starts — this
 keeps every migration paired with code that actually exercises it.
 

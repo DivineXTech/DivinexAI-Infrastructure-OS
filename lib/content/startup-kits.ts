@@ -60,4 +60,37 @@ export const STARTUP_KITS: StartupKit[] = [
     bestFor: "Operators scaling beyond a single print method",
     availability: "early-access",
   },
+  {
+    slug: "mobile-vendor-kit",
+    name: "Mobile Vendor Kit",
+    summary: "A portable configuration for markets, pop-ups, and live events.",
+    includes: ["Portable heat press guidance", "Compact workspace planning", "Event-ready packaging"],
+    bestFor: "Founders selling at markets, fairs, and pop-up events",
+    availability: "planned",
+  },
+  {
+    slug: "small-production-studio",
+    name: "Small Production Studio",
+    summary: "A dedicated-space configuration supporting more than one print method at moderate volume.",
+    includes: ["Multi-method equipment plan", "Workspace layout guidance", "Production workflow basics"],
+    bestFor: "Operators outgrowing a single-method home setup",
+    availability: "planned",
+  },
+  {
+    slug: "outsourced-brand-launch-kit",
+    name: "Outsourced Brand Launch Kit",
+    summary: "Launch without owning production equipment, using supplier and print-partner relationships.",
+    includes: ["Supplier sourcing guidance", "Quality-control checklist", "Order-handoff workflow basics"],
+    bestFor: "Founders who want to launch a brand without in-house production",
+    availability: "planned",
+  },
+  {
+    slug: "custom-recommendation",
+    name: "Custom Recommendation",
+    summary:
+      "Your answers didn't cleanly match one of the configurations above — this means a tailored plan built around your specific mix of goals, not a fixed kit.",
+    includes: ["A follow-up consultation to build your specific configuration"],
+    bestFor: "Founders with an unusual combination of goals, budget, or constraints",
+    availability: "available",
+  },
 ];

@@ -11,12 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireCurrentTenantRole } from "@/lib/auth/session";
 import { STAFF_ROLES, TENANT_ADMIN_ROLES } from "@/lib/auth/roles";
+import { getCatalogDashboardMetrics } from "@/lib/catalog/data-access";
+import { getDesignDashboardMetrics } from "@/lib/design-studio/data-access";
 import { getLaunchReadinessAssessment } from "@/lib/onboarding/data-access";
 import { getOnboardingSession, getStepProgress } from "@/lib/onboarding/session";
 import { computeCurrentStep } from "@/lib/onboarding/progress";
 import { stepMeta } from "@/lib/onboarding/steps";
 
-const METRICS = [
+const NOT_YET_BUILT_METRICS = [
   "Total sales",
   "Total orders",
   "Orders awaiting production",
@@ -28,6 +30,18 @@ const METRICS = [
   "Average order value",
 ] as const;
 
+function recommendNextAction(
+  catalog: { productDrafts: number; activeProducts: number; productsMissingPricing: number; productsMissingVariants: number },
+  design: { designsAwaitingReview: number; approvedDesigns: number; mockupsGenerated: number },
+): string {
+  if (design.designsAwaitingReview > 0) return "Review designs awaiting approval in the Design Studio.";
+  if (design.approvedDesigns > 0) return "Convert an approved design into a product draft.";
+  if (catalog.productsMissingVariants > 0) return "Generate a size/color variant matrix for a draft product.";
+  if (catalog.productsMissingPricing > 0) return "Set pricing for a draft product's variants.";
+  if (catalog.productDrafts === 0 && catalog.activeProducts === 0) return "Start a design in the Design Studio.";
+  return "Everything is current — no immediate action needed.";
+}
+
 export default async function DashboardPage() {
   const membership = await requireCurrentTenantRole(STAFF_ROLES);
   const canSeeReadiness = TENANT_ADMIN_ROLES.includes(membership.roleKey);
@@ -36,6 +50,12 @@ export default async function DashboardPage() {
   const stepProgress = session ? await getStepProgress(membership.tenantId, session.id) : [];
   const readiness =
     canSeeReadiness && session ? await getLaunchReadinessAssessment(membership.tenantId) : null;
+
+  const [catalogMetrics, designMetrics] = await Promise.all([
+    getCatalogDashboardMetrics(membership.tenantId),
+    getDesignDashboardMetrics(membership.tenantId),
+  ]);
+  const nextAction = recommendNextAction(catalogMetrics, designMetrics);
 
   return (
     <div className="flex flex-col gap-6">
@@ -94,18 +114,52 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {METRICS.map((metric) => (
-          <Card key={metric}>
-            <CardHeader className="pb-2">
-              <CardDescription>{metric}</CardDescription>
-              <CardTitle className="text-2xl">—</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Badge variant="outline">No data yet</Badge>
-            </CardContent>
-          </Card>
-        ))}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recommended next action</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-ink-muted">{nextAction}</p>
+        </CardContent>
+      </Card>
+
+      <div>
+        <h2 className="mb-3 text-sm font-medium text-ink-muted">Product &amp; design activity</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { label: "Product drafts", value: catalogMetrics.productDrafts },
+            { label: "Active products", value: catalogMetrics.activeProducts },
+            { label: "Products missing pricing", value: catalogMetrics.productsMissingPricing },
+            { label: "Products missing variants", value: catalogMetrics.productsMissingVariants },
+            { label: "Designs awaiting review", value: designMetrics.designsAwaitingReview },
+            { label: "Approved designs", value: designMetrics.approvedDesigns },
+            { label: "Mockups generated", value: designMetrics.mockupsGenerated },
+          ].map((metric) => (
+            <Card key={metric.label}>
+              <CardHeader className="pb-2">
+                <CardDescription>{metric.label}</CardDescription>
+                <CardTitle className="text-2xl">{metric.value}</CardTitle>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-sm font-medium text-ink-muted">Not yet available (Phase 5+)</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {NOT_YET_BUILT_METRICS.map((metric) => (
+            <Card key={metric}>
+              <CardHeader className="pb-2">
+                <CardDescription>{metric}</CardDescription>
+                <CardTitle className="text-2xl">—</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Badge variant="outline">No data yet</Badge>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       <p className="text-xs text-ink-subtle">

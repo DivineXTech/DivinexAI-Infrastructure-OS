@@ -14,6 +14,7 @@ export const APP_NAV: NavItem[] = [
   { label: "Dashboard", href: "/app" },
   { label: "Onboarding", href: "/app/onboarding" },
   { label: "Brand", href: "/app/brand" },
+  { label: "Garments", href: "/app/garments" },
   { label: "Design Studio", href: "/app/design-studio" },
   { label: "Mockups", href: "/app/mockups" },
   { label: "Products", href: "/app/products" },

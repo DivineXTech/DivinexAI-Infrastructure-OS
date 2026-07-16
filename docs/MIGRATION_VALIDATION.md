@@ -19,10 +19,49 @@ what still needs to run once a real project is available, and how.
    an anon-insert / super-admin-only-read RLS policy pair (the one
    deliberate exception to "no anonymous access" — see docs/SECURITY.md
    "Public lead capture").
+5. `20260718000000_onboarding.sql` (Phase 3) — the onboarding wizard's 11
+   tables; see docs/ONBOARDING.md.
+6. `20260719000000_catalog.sql` (Phase 4) — garment templates, design
+   studio, mockups, and the product catalog's 19 tables; see
+   docs/DATABASE.md, docs/GARMENT_TEMPLATES.md, docs/DESIGN_STUDIO.md,
+   docs/PRODUCT_CATALOG.md.
 
 Applied in this order via filename timestamp, which is how Supabase's
 migration tooling (`supabase db push` / `supabase migration up`) sequences
 them — no manual ordering step needed.
+
+## Phase 4: actually executed against a real Postgres instance
+
+Unlike the migrations above (statically reviewed only, per this file's
+opening note), `20260719000000_catalog.sql` and the updated
+`supabase/seed/seed.sql` were **both actually applied** during
+development, against a real local Postgres 16 instance (available in
+this sandbox, though not a full Supabase stack — no `auth`/`storage`
+schema, so those were stubbed with minimal compatible tables/functions
+just enough to satisfy the foreign keys and RLS helper functions the
+migrations reference). This is stronger evidence than static review, but
+still short of the "Live validation checklist" below (real Supabase
+Auth, real authenticated RLS sessions, real Storage). Specifically
+verified by execution, not just by reading the SQL:
+
+- The full migration chain (foundation through catalog) applies cleanly
+  in order against a clean database.
+- **Re-running the entire chain a second time is fully idempotent** — this
+  caught a real bug: the first draft of `20260719000000_catalog.sql` used
+  a bare `alter table ... add constraint` for `design_projects`'s
+  `current_version_id` foreign key, which fails on a second run
+  ("constraint already exists"). Fixed by wrapping it in a
+  `do $$ if not exists (select 1 from pg_constraint where conname = ...) $$`
+  guard, matching the `if not exists`/`drop ... if exists` pattern every
+  other DDL statement in this file already follows.
+- `supabase/seed/seed.sql`'s new Phase 4 section (platform garment
+  templates + sizes/colors/views/print zones) applies cleanly and is
+  idempotent (a second run inserts zero additional rows).
+- The null-safe `product_variants_combo_idx` expression index actually
+  rejects a duplicate size/color combination insert (not just believed to,
+  from reading the SQL).
+
+## Static validation performed
 
 ## Static validation performed
 

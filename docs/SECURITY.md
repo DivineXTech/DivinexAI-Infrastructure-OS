@@ -361,6 +361,53 @@ Logo uploads go through the existing `logos` Storage bucket (Phase 1.5),
 scoped via `buildTenantObjectPath` — same path-safety and RLS guarantees
 as every other bucket, no new upload code path bypassing them.
 
+## Catalog / design studio authorization (Phase 4)
+
+`supabase/migrations/20260719000000_catalog.sql` adds 19 tables (see
+docs/DATABASE.md). Two ownership shapes:
+
+- **Ordinary tenant-owned** (design projects, artwork, elements/
+  placements, mockups, products, variants, images, cost components,
+  price/status history): `tenant_id uuid not null`, default-deny RLS,
+  `has_tenant_role()`/`is_platform_super_admin()` — no new helper
+  functions, same pattern as every prior migration.
+- **Garment templates** (and their 4 child tables): `tenant_id` is
+  **nullable**. `null` means platform-owned and readable by every active
+  tenant member; a set value means a tenant-created custom template,
+  readable/writable only by that tenant's owner/admin. Full rationale in
+  docs/GARMENT_TEMPLATES.md.
+
+Role matrix (docs/DESIGN_STUDIO.md / docs/PRODUCT_CATALOG.md have the
+full detail):
+
+- `tenant_owner`/`tenant_admin`: full read+write everywhere.
+- `designer`: create/edit design projects, upload artwork, generate
+  mockups, submit for review — **cannot approve** (approval requires
+  `requireDesignApprovalAccess`, owner/admin only) and has no product
+  write access at all.
+- `production_manager`: read-only on design projects/assets/elements/
+  placements/variants/cost-components, and RLS additionally narrows that
+  to `approved`/`converted_to_product` designs and
+  `approved`/`active` products — never drafts or in-review work.
+- `sales_rep`: read-only on `active` products/variants/images only.
+- Everyone else: denied, logged as `privileged_action.denied`.
+
+Application-layer gates (`lib/catalog/guard.ts`,
+`lib/design-studio/guard.ts`) mirror this exactly and resolve the
+caller's role from their own authenticated session, never from client
+input — the same `61b1b83` contract. Two production-manager RLS policies
+(on `design_project_versions`/`design_assets`/`design_elements` and on
+`design_placements`) use a `exists (select 1 from design_projects ...)`
+subquery rather than a denormalized status column, since those child
+tables don't carry their own status — this is the most structurally
+complex RLS in the schema and was specifically validated by actually
+running the migration against a local Postgres instance (see
+docs/MIGRATION_VALIDATION.md), not just statically reviewed.
+
+Artwork upload security (SVG sanitization, MIME/dimension verification,
+signed URLs, the one bucket MIME-allowlist change) is documented
+separately in docs/ARTWORK_SECURITY.md.
+
 ## Input validation
 
 All forms (login, signup, create-tenant) validate with Zod schemas
@@ -370,7 +417,7 @@ client form and the Server Action that actually performs the mutation —
 client-side form already checked, since a client can always bypass
 client-side checks.
 
-## Known gaps at the end of Phase 1.5 (still open through Phase 3)
+## Known gaps at the end of Phase 1.5 (still open through Phase 4)
 
 - **Live verification is still outstanding.** Everything above describing
   RLS, storage, and authorization behavior is a description of the code as
@@ -380,9 +427,18 @@ client-side checks.
   `tests/integration/*` have actually run and passed against a real
   project — see docs/TESTING.md and docs/MIGRATION_VALIDATION.md. This
   applies equally to the Phase 3 onboarding tables/RLS/logo-storage
-  authorization: `tests/integration/onboarding-isolation.test.ts` and
-  `tests/e2e/onboarding-flow.spec.ts` are written and skip cleanly without
-  a live backend, exactly like the tests above — not yet executed.
+  authorization and the Phase 4 catalog/design-studio tables/RLS/artwork
+  storage authorization: `tests/integration/onboarding-isolation.test.ts`,
+  `tests/integration/catalog-isolation.test.ts`,
+  `tests/e2e/onboarding-flow.spec.ts`, and
+  `tests/e2e/design-studio-flow.spec.ts` are all written and skip cleanly
+  without a live backend, exactly like the tests above — not yet executed.
+  The Phase 4 migration itself is the one exception with a stronger
+  guarantee: it was actually applied (and re-applied, to check
+  idempotency) against a real local Postgres instance during development
+  — see docs/MIGRATION_VALIDATION.md — which is more than static review
+  but still short of running against the real Supabase (`auth`/`storage`
+  extensions, real RLS-authenticated sessions) stack.
 - Rate limiting is not implemented (no abstraction yet either). Needed
   before auth endpoints or any public form goes to production.
 - Audit logging fails soft when the service-role key is missing (see

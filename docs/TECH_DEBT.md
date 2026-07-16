@@ -97,3 +97,44 @@ pass.
     shared currency-input helper. Three near-identical `Math.round(x * 100)`
     call sites; low risk (all covered by the same Zod schemas
     server-side) but worth consolidating if a fourth money field shows up.
+
+## Phase 4 — known limitations, recorded rather than deferred silently
+
+13. **Mockup image elements render as a placeholder outline, not the
+    actual artwork pixels.** See docs/DESIGN_STUDIO.md "Mockup
+    limitations" — embedding a private, signed-URL cross-origin image
+    into an SVG that's then rasterized via `<canvas>` risks a tainted
+    canvas (the browser refuses `toDataURL()`). Text elements render
+    correctly. Fix options: proxy the image bytes through a same-origin
+    Server Action before embedding, or add a real server-side rendering
+    service (headless Chromium, or a `sharp`-based compositor) — either
+    is a meaningfully larger change than this MVP phase's scope.
+14. **SVG sanitization is denylist-based regex, not an allowlist DOM
+    parser.** No `dompurify`-equivalent dependency exists in this project
+    yet. Documented in detail, including the honest limitation, in
+    docs/ARTWORK_SECURITY.md. Upgrade path: add a real sanitization
+    library once one is approved as a dependency.
+15. **`sales_rep` "draft descriptions if entitled" is not implemented.**
+    Same deferral rationale as Phase 3's "Authorized manager" tier — true
+    per-user entitlements need the `permissions`/`role_permissions` tables,
+    which remain reserved-but-unused. `sales_rep` in this phase is
+    strictly read-only on active products.
+16. **Image-dimension/transparency reading is a from-scratch binary
+    parser** (`lib/catalog/image-dimensions.ts`), not a battle-tested
+    library like `image-size` or `sharp` (neither is a project
+    dependency). Covers PNG/JPEG/WebP(VP8/VP8L/VP8X)/SVG correctly for the
+    common cases exercised by its unit tests, but is not as exhaustively
+    correct as a maintained library would be for unusual/malformed files
+    (e.g. progressive JPEGs with multiple SOF-like markers, animated
+    WebP). Low risk — a parse failure returns `null` (treated as "unknown,
+    manual review recommended" by `artwork-quality.ts`), never a wrong
+    answer presented as certain.
+17. **`getCatalogDashboardMetrics` computes "missing pricing/variants"
+    with an N+1 query** (one `listProductVariants` call per product).
+    Fine at demo/small-tenant scale; would need a single aggregate query
+    (or a materialized view) before a tenant has hundreds of products.
+18. **No bulk variant update UI.** Section 12 asks for "support bulk
+    updates" for variants; this phase ships single-variant pricing edits
+    and matrix generation, but no multi-select bulk-edit UI (e.g. "set
+    all M/L variants' retail price to $X at once"). Worth adding once
+    real usage shows it's needed rather than speculatively.

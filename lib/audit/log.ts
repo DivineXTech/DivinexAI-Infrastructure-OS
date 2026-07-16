@@ -26,7 +26,22 @@ export type AuditAction =
   | "onboarding.startup_kit_recommended"
   | "onboarding.startup_kit_overridden"
   | "onboarding.completed"
-  | "onboarding.reopened";
+  | "onboarding.reopened"
+  | "garment_template.created"
+  | "design_project.created"
+  | "design_asset.uploaded"
+  | "design_asset.removed"
+  | "design_project.submitted"
+  | "design_project.changes_requested"
+  | "design_project.approved"
+  | "design_project.version_restored"
+  | "mockup.generated"
+  | "product.created"
+  | "product.updated"
+  | "product.variants_generated"
+  | "product.pricing_changed"
+  | "product.activated"
+  | "product.archived";
 
 export type AuditLogEntry = {
   tenantId?: string | null;

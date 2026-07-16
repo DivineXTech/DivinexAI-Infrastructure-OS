@@ -664,6 +664,714 @@ export type Database = {
         };
         Relationships: Relationship[];
       };
+      garment_templates: {
+        Row: {
+          id: string;
+          tenant_id: string | null;
+          slug: string;
+          name: string;
+          category: string;
+          manufacturer: string | null;
+          style_number: string | null;
+          description: string | null;
+          fabric_composition: string | null;
+          weight: string | null;
+          fit: string | null;
+          audience: string | null;
+          supported_production_methods: string[];
+          base_wholesale_cost_cents: number | null;
+          status: "draft" | "active" | "archived";
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id?: string | null;
+          slug: string;
+          name: string;
+          category: string;
+          manufacturer?: string | null;
+          style_number?: string | null;
+          description?: string | null;
+          fabric_composition?: string | null;
+          weight?: string | null;
+          fit?: string | null;
+          audience?: string | null;
+          supported_production_methods?: string[];
+          base_wholesale_cost_cents?: number | null;
+          status?: "draft" | "active" | "archived";
+          created_by?: string | null;
+        };
+        Update: {
+          slug?: string;
+          name?: string;
+          category?: string;
+          manufacturer?: string | null;
+          style_number?: string | null;
+          description?: string | null;
+          fabric_composition?: string | null;
+          weight?: string | null;
+          fit?: string | null;
+          audience?: string | null;
+          supported_production_methods?: string[];
+          base_wholesale_cost_cents?: number | null;
+          status?: "draft" | "active" | "archived";
+        };
+        Relationships: Relationship[];
+      };
+      garment_template_views: {
+        Row: {
+          id: string;
+          garment_template_id: string;
+          tenant_id: string | null;
+          view_key: "front" | "back" | "left" | "right" | "detail";
+          image_path: string | null;
+          svg_markup: string | null;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          garment_template_id: string;
+          tenant_id?: string | null;
+          view_key: "front" | "back" | "left" | "right" | "detail";
+          image_path?: string | null;
+          svg_markup?: string | null;
+          sort_order?: number;
+        };
+        Update: {
+          image_path?: string | null;
+          svg_markup?: string | null;
+          sort_order?: number;
+        };
+        Relationships: Relationship[];
+      };
+      garment_template_colors: {
+        Row: {
+          id: string;
+          garment_template_id: string;
+          tenant_id: string | null;
+          name: string;
+          hex_value: string;
+          swatch_image_path: string | null;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          garment_template_id: string;
+          tenant_id?: string | null;
+          name: string;
+          hex_value: string;
+          swatch_image_path?: string | null;
+          sort_order?: number;
+        };
+        Update: {
+          name?: string;
+          hex_value?: string;
+          swatch_image_path?: string | null;
+          sort_order?: number;
+        };
+        Relationships: Relationship[];
+      };
+      garment_template_sizes: {
+        Row: {
+          id: string;
+          garment_template_id: string;
+          tenant_id: string | null;
+          size_label: string;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          garment_template_id: string;
+          tenant_id?: string | null;
+          size_label: string;
+          sort_order?: number;
+        };
+        Update: {
+          size_label?: string;
+          sort_order?: number;
+        };
+        Relationships: Relationship[];
+      };
+      garment_print_zones: {
+        Row: {
+          id: string;
+          garment_template_id: string;
+          tenant_id: string | null;
+          zone_key: string;
+          view_key: "front" | "back" | "left" | "right";
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          safe_width: number | null;
+          safe_height: number | null;
+          max_width_inches: number | null;
+          max_height_inches: number | null;
+          supported_production_methods: string[];
+          rotation_locked: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          garment_template_id: string;
+          tenant_id?: string | null;
+          zone_key: string;
+          view_key: "front" | "back" | "left" | "right";
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          safe_width?: number | null;
+          safe_height?: number | null;
+          max_width_inches?: number | null;
+          max_height_inches?: number | null;
+          supported_production_methods?: string[];
+          rotation_locked?: boolean;
+        };
+        Update: {
+          x?: number;
+          y?: number;
+          width?: number;
+          height?: number;
+          safe_width?: number | null;
+          safe_height?: number | null;
+          max_width_inches?: number | null;
+          max_height_inches?: number | null;
+          supported_production_methods?: string[];
+          rotation_locked?: boolean;
+        };
+        Relationships: Relationship[];
+      };
+      design_projects: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: string;
+          status:
+            | "draft"
+            | "needs_artwork"
+            | "ready_for_review"
+            | "changes_requested"
+            | "approved"
+            | "converted_to_product"
+            | "archived";
+          garment_template_id: string | null;
+          garment_color_id: string | null;
+          production_method: string | null;
+          owner_profile_id: string | null;
+          assigned_designer_id: string | null;
+          internal_notes: string | null;
+          customer_notes: string | null;
+          created_from: "manual" | "onboarding";
+          current_version_id: string | null;
+          created_at: string;
+          updated_at: string;
+          archived_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          name?: string;
+          status?:
+            | "draft"
+            | "needs_artwork"
+            | "ready_for_review"
+            | "changes_requested"
+            | "approved"
+            | "converted_to_product"
+            | "archived";
+          garment_template_id?: string | null;
+          garment_color_id?: string | null;
+          production_method?: string | null;
+          owner_profile_id?: string | null;
+          assigned_designer_id?: string | null;
+          internal_notes?: string | null;
+          customer_notes?: string | null;
+          created_from?: "manual" | "onboarding";
+          current_version_id?: string | null;
+        };
+        Update: {
+          name?: string;
+          status?:
+            | "draft"
+            | "needs_artwork"
+            | "ready_for_review"
+            | "changes_requested"
+            | "approved"
+            | "converted_to_product"
+            | "archived";
+          garment_template_id?: string | null;
+          garment_color_id?: string | null;
+          production_method?: string | null;
+          assigned_designer_id?: string | null;
+          internal_notes?: string | null;
+          customer_notes?: string | null;
+          current_version_id?: string | null;
+          archived_at?: string | null;
+        };
+        Relationships: Relationship[];
+      };
+      design_project_versions: {
+        Row: {
+          id: string;
+          design_project_id: string;
+          tenant_id: string;
+          version_number: number;
+          label: string | null;
+          state: Json;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          design_project_id: string;
+          tenant_id: string;
+          version_number: number;
+          label?: string | null;
+          state: Json;
+          created_by?: string | null;
+        };
+        Update: never;
+        Relationships: Relationship[];
+      };
+      design_assets: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          design_project_id: string | null;
+          storage_path: string;
+          original_filename: string;
+          mime_type: "image/png" | "image/jpeg" | "image/svg+xml" | "image/webp";
+          file_size_bytes: number;
+          width_px: number | null;
+          height_px: number | null;
+          estimated_dpi: number | null;
+          has_transparency: boolean | null;
+          checksum: string | null;
+          status: "active" | "replaced" | "deleted";
+          uploaded_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          design_project_id?: string | null;
+          storage_path: string;
+          original_filename: string;
+          mime_type: "image/png" | "image/jpeg" | "image/svg+xml" | "image/webp";
+          file_size_bytes: number;
+          width_px?: number | null;
+          height_px?: number | null;
+          estimated_dpi?: number | null;
+          has_transparency?: boolean | null;
+          checksum?: string | null;
+          status?: "active" | "replaced" | "deleted";
+          uploaded_by?: string | null;
+        };
+        Update: {
+          design_project_id?: string | null;
+          status?: "active" | "replaced" | "deleted";
+        };
+        Relationships: Relationship[];
+      };
+      design_elements: {
+        Row: {
+          id: string;
+          design_project_id: string;
+          tenant_id: string;
+          element_type: "text" | "image";
+          z_index: number;
+          locked: boolean;
+          hidden: boolean;
+          text_content: string | null;
+          font_key: string | null;
+          font_size: number | null;
+          text_color: string | null;
+          text_align: "left" | "center" | "right" | null;
+          design_asset_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          design_project_id: string;
+          tenant_id: string;
+          element_type: "text" | "image";
+          z_index?: number;
+          locked?: boolean;
+          hidden?: boolean;
+          text_content?: string | null;
+          font_key?: string | null;
+          font_size?: number | null;
+          text_color?: string | null;
+          text_align?: "left" | "center" | "right" | null;
+          design_asset_id?: string | null;
+        };
+        Update: {
+          z_index?: number;
+          locked?: boolean;
+          hidden?: boolean;
+          text_content?: string | null;
+          font_key?: string | null;
+          font_size?: number | null;
+          text_color?: string | null;
+          text_align?: "left" | "center" | "right" | null;
+          design_asset_id?: string | null;
+        };
+        Relationships: Relationship[];
+      };
+      design_placements: {
+        Row: {
+          id: string;
+          design_element_id: string;
+          tenant_id: string;
+          print_zone_id: string | null;
+          garment_view: "front" | "back" | "left" | "right";
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          rotation: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          design_element_id: string;
+          tenant_id: string;
+          print_zone_id?: string | null;
+          garment_view: "front" | "back" | "left" | "right";
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          rotation?: number;
+        };
+        Update: {
+          print_zone_id?: string | null;
+          garment_view?: "front" | "back" | "left" | "right";
+          x?: number;
+          y?: number;
+          width?: number;
+          height?: number;
+          rotation?: number;
+        };
+        Relationships: Relationship[];
+      };
+      mockups: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          design_project_id: string | null;
+          design_project_version_id: string | null;
+          status: "generated" | "downloaded";
+          has_watermark: boolean;
+          generated_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          design_project_id?: string | null;
+          design_project_version_id?: string | null;
+          status?: "generated" | "downloaded";
+          has_watermark?: boolean;
+          generated_by?: string | null;
+        };
+        Update: {
+          status?: "generated" | "downloaded";
+        };
+        Relationships: Relationship[];
+      };
+      mockup_views: {
+        Row: {
+          id: string;
+          mockup_id: string;
+          tenant_id: string;
+          view_key: "front" | "back" | "left" | "right" | "composite";
+          image_path: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          mockup_id: string;
+          tenant_id: string;
+          view_key: "front" | "back" | "left" | "right" | "composite";
+          image_path: string;
+        };
+        Update: never;
+        Relationships: Relationship[];
+      };
+      products: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: string;
+          slug: string;
+          short_description: string | null;
+          full_description: string | null;
+          category: string | null;
+          garment_template_id: string | null;
+          design_project_id: string | null;
+          production_method: string | null;
+          status: "draft" | "ready_for_review" | "approved" | "active" | "paused" | "archived";
+          sales_channels: string[];
+          is_featured: boolean;
+          seo_title: string | null;
+          seo_description: string | null;
+          tags: string[];
+          primary_image_path: string | null;
+          internal_notes: string | null;
+          created_at: string;
+          updated_at: string;
+          archived_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          name: string;
+          slug: string;
+          short_description?: string | null;
+          full_description?: string | null;
+          category?: string | null;
+          garment_template_id?: string | null;
+          design_project_id?: string | null;
+          production_method?: string | null;
+          status?: "draft" | "ready_for_review" | "approved" | "active" | "paused" | "archived";
+          sales_channels?: string[];
+          is_featured?: boolean;
+          seo_title?: string | null;
+          seo_description?: string | null;
+          tags?: string[];
+          primary_image_path?: string | null;
+          internal_notes?: string | null;
+        };
+        Update: {
+          name?: string;
+          slug?: string;
+          short_description?: string | null;
+          full_description?: string | null;
+          category?: string | null;
+          garment_template_id?: string | null;
+          design_project_id?: string | null;
+          production_method?: string | null;
+          status?: "draft" | "ready_for_review" | "approved" | "active" | "paused" | "archived";
+          sales_channels?: string[];
+          is_featured?: boolean;
+          seo_title?: string | null;
+          seo_description?: string | null;
+          tags?: string[];
+          primary_image_path?: string | null;
+          internal_notes?: string | null;
+          archived_at?: string | null;
+        };
+        Relationships: Relationship[];
+      };
+      product_variants: {
+        Row: {
+          id: string;
+          product_id: string;
+          tenant_id: string;
+          sku: string;
+          barcode: string | null;
+          size_label: string | null;
+          color_name: string | null;
+          garment_style: string | null;
+          material: string | null;
+          print_location: string | null;
+          base_garment_cost_cents: number;
+          print_cost_cents: number;
+          packaging_cost_cents: number;
+          additional_cost_cents: number;
+          retail_price_cents: number | null;
+          wholesale_price_cents: number | null;
+          compare_at_price_cents: number | null;
+          weight_grams: number | null;
+          is_active: boolean;
+          track_inventory: boolean;
+          supplier_reference: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          tenant_id: string;
+          sku: string;
+          barcode?: string | null;
+          size_label?: string | null;
+          color_name?: string | null;
+          garment_style?: string | null;
+          material?: string | null;
+          print_location?: string | null;
+          base_garment_cost_cents?: number;
+          print_cost_cents?: number;
+          packaging_cost_cents?: number;
+          additional_cost_cents?: number;
+          retail_price_cents?: number | null;
+          wholesale_price_cents?: number | null;
+          compare_at_price_cents?: number | null;
+          weight_grams?: number | null;
+          is_active?: boolean;
+          track_inventory?: boolean;
+          supplier_reference?: string | null;
+        };
+        Update: {
+          sku?: string;
+          barcode?: string | null;
+          size_label?: string | null;
+          color_name?: string | null;
+          garment_style?: string | null;
+          material?: string | null;
+          print_location?: string | null;
+          base_garment_cost_cents?: number;
+          print_cost_cents?: number;
+          packaging_cost_cents?: number;
+          additional_cost_cents?: number;
+          retail_price_cents?: number | null;
+          wholesale_price_cents?: number | null;
+          compare_at_price_cents?: number | null;
+          weight_grams?: number | null;
+          is_active?: boolean;
+          track_inventory?: boolean;
+          supplier_reference?: string | null;
+        };
+        Relationships: Relationship[];
+      };
+      product_images: {
+        Row: {
+          id: string;
+          product_id: string;
+          tenant_id: string;
+          image_path: string;
+          alt_text: string | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          tenant_id: string;
+          image_path: string;
+          alt_text?: string | null;
+          sort_order?: number;
+        };
+        Update: {
+          image_path?: string;
+          alt_text?: string | null;
+          sort_order?: number;
+        };
+        Relationships: Relationship[];
+      };
+      product_design_links: {
+        Row: {
+          id: string;
+          product_id: string;
+          design_project_id: string;
+          tenant_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          design_project_id: string;
+          tenant_id: string;
+        };
+        Update: never;
+        Relationships: Relationship[];
+      };
+      product_cost_components: {
+        Row: {
+          id: string;
+          product_variant_id: string;
+          tenant_id: string;
+          component_key:
+            | "blank_garment"
+            | "printing"
+            | "packaging"
+            | "labor"
+            | "transaction_estimate"
+            | "fulfillment"
+            | "other";
+          amount_cents: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_variant_id: string;
+          tenant_id: string;
+          component_key:
+            | "blank_garment"
+            | "printing"
+            | "packaging"
+            | "labor"
+            | "transaction_estimate"
+            | "fulfillment"
+            | "other";
+          amount_cents?: number;
+        };
+        Update: {
+          amount_cents?: number;
+        };
+        Relationships: Relationship[];
+      };
+      product_price_history: {
+        Row: {
+          id: string;
+          product_variant_id: string;
+          tenant_id: string;
+          retail_price_cents: number | null;
+          wholesale_price_cents: number | null;
+          compare_at_price_cents: number | null;
+          changed_by: string | null;
+          reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_variant_id: string;
+          tenant_id: string;
+          retail_price_cents?: number | null;
+          wholesale_price_cents?: number | null;
+          compare_at_price_cents?: number | null;
+          changed_by?: string | null;
+          reason?: string | null;
+        };
+        Update: never;
+        Relationships: Relationship[];
+      };
+      product_status_history: {
+        Row: {
+          id: string;
+          product_id: string;
+          tenant_id: string;
+          from_status: string | null;
+          to_status: string;
+          changed_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          tenant_id: string;
+          from_status?: string | null;
+          to_status: string;
+          changed_by?: string | null;
+        };
+        Update: never;
+        Relationships: Relationship[];
+      };
     };
     Views: Record<string, never>;
     Functions: {

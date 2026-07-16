@@ -1,6 +1,6 @@
 # Database
 
-Postgres via Supabase. Five migrations so far, in order — see
+Postgres via Supabase. Six migrations so far, in order — see
 docs/MIGRATION_VALIDATION.md for the full validation record:
 
 1. `20260715000000_foundation.sql`
@@ -8,6 +8,7 @@ docs/MIGRATION_VALIDATION.md for the full validation record:
 3. `20260716010000_prevent_privilege_escalation.sql`
 4. `20260717000000_leads.sql`
 5. `20260718000000_onboarding.sql` (Phase 3)
+6. `20260719000000_catalog.sql` (Phase 4)
 
 ## Tables
 
@@ -32,9 +33,24 @@ docs/MIGRATION_VALIDATION.md for the full validation record:
 | `storefront_preferences` (Phase 3) | Name, theme, domain status, planned payment methods. | Yes (`tenant_id`, unique) |
 | `fulfillment_preferences` (Phase 3) | Model, lead time, shipping regions, return policy, QC. | Yes (`tenant_id`, unique) |
 | `launch_readiness_assessments` (Phase 3) | Cached 0–100 score + category breakdown, owner/admin read only. | Yes (`tenant_id`, unique) |
+| `garment_templates` (Phase 4) | Garment template; `tenant_id` **nullable** — null = platform-owned shared template, set = tenant-created custom template. | Partial (see docs/GARMENT_TEMPLATES.md) |
+| `garment_template_views` / `_colors` / `_sizes` (Phase 4) | Child rows per template; denormalize the parent's `tenant_id` (also nullable). | Partial |
+| `garment_print_zones` (Phase 4) | Print-zone position/safe-boundary/supported-methods per template view. | Partial |
+| `design_projects` (Phase 4) | A design in progress: status, garment/color/method, owner/assigned designer, notes. | Yes (`tenant_id`) |
+| `design_project_versions` (Phase 4) | Immutable jsonb snapshots of a project's normalized state, for restore. | Yes (`tenant_id`) |
+| `design_assets` (Phase 4) | Uploaded artwork metadata (dimensions, transparency, checksum); private storage. | Yes (`tenant_id`) |
+| `design_elements` / `design_placements` (Phase 4) | The *live* editable state — abstract element + its per-view transform. | Yes (`tenant_id`) |
+| `mockups` / `mockup_views` (Phase 4) | Browser-generated digital preview images, never production proofs. | Yes (`tenant_id`) |
+| `products` (Phase 4) | Product catalog entry: status, garment/design links, SEO, tags. | Yes (`tenant_id`, unique slug) |
+| `product_variants` (Phase 4) | Size/color/style/material/print-location combination + costs/prices. | Yes (`tenant_id`, unique sku + null-safe combo index) |
+| `product_images` / `product_design_links` (Phase 4) | Gallery images; product↔design provenance link. | Yes (`tenant_id`) |
+| `product_cost_components` (Phase 4) | Per-variant cost line items feeding the pricing engine. | Yes (`tenant_id`) |
+| `product_price_history` / `product_status_history` (Phase 4) | Append-only change trails, separate from `audit_logs`. | Yes (`tenant_id`) |
 
 See docs/ONBOARDING.md for the full Phase 3 authorization/resumability
-model. Later-phase tables are listed in `docs/IMPLEMENTATION_PLAN.md` §4 and will
+model, and docs/GARMENT_TEMPLATES.md / docs/DESIGN_STUDIO.md /
+docs/PRODUCT_CATALOG.md for the Phase 4 tables above. Later-phase tables
+are listed in `docs/IMPLEMENTATION_PLAN.md` §4 and will
 ship as their own migrations when the corresponding phase starts — this
 keeps every migration paired with code that actually exercises it.
 

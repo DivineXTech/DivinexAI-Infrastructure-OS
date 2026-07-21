@@ -19,11 +19,22 @@ order:
 5. **[RISK_REGISTER.md](./RISK_REGISTER.md)** — predictable risks for a build
    of this shape (RLS consistency, ADK boundary creep, premature vendor
    lock-in, etc.) and their mitigations.
-6. **[adr/](./adr/)** — architecture decision records for the major calls
-   made in the implementation plan.
+6. **[HOUSE_CONVENTION_REVIEW.md](./HOUSE_CONVENTION_REVIEW.md)** — read-only
+   inspection of sibling DivineXTech repos (MediaForgeOS, afrogrow360-core)
+   for conventions to adopt, reject, or reconcile before Phase 1 code is
+   written.
+7. **[adr/](./adr/)** — architecture decision records for the major calls
+   made in the implementation plan. `ADR-0001` carries an addendum recording
+   what was adopted/rejected from the house convention review; `ADR-0011`
+   (deployment topology/worker hosting) and `ADR-0012` (testing framework)
+   were added directly as a result of it.
 
 ## Status
 
-Phase 0 complete. Stack decision (Next.js/TypeScript + Supabase Postgres
-with RLS + pgvector) approved. Phase 1 (shared domain foundation) has not
-started — this branch contains documentation only.
+Phase 0 complete, including house convention review. Stack decision
+(Next.js/TypeScript + Supabase Postgres with RLS + pgvector, Bun + Turborepo
+monorepo tooling, Zod validation) approved. Deployment: Vercel + Supabase
+accepted as the current working assumption; durable worker hosting
+explicitly deferred to before Phase 5 (`ADR-0011`). Phase 1 (shared domain
+foundation: tenancy tables, RLS, base service interfaces) is starting on
+this branch.

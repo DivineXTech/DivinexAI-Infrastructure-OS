@@ -47,3 +47,11 @@ or Inngest) fronting the same tables — only the execution driver changes.
 - Inngest — lower ops burden than Temporal, good Next.js fit, but still a
   new vendor dependency; deferred until the Postgres-native approach is
   shown to be insufficient.
+
+## Related
+
+- `ADR-0011` — this ADR decides the execution *model* (Postgres tables as
+  source of truth, worker polls and claims steps); ADR-0011 decides *where
+  the worker process physically runs* (VPS, Cloud Run, Railway, Render,
+  Fly.io, or a managed workflow engine instead of this model entirely). Both
+  must be settled before Phase 5.

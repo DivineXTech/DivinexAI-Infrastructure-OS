@@ -104,12 +104,40 @@ body {
   padding: 40px 20px 64px;
 }
 
-.app-header h1 {
+.tab-nav {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--line);
+}
+.tab-btn {
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 10px 4px;
+  margin-right: 20px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--text);
+  border-bottom-color: var(--turf);
+}
+.tab-btn:focus-visible {
+  outline: 2px solid var(--turf);
+  outline-offset: 2px;
+}
+
+.page-header h1 {
   font-size: clamp(1.9rem, 6vw, 2.6rem);
   margin: 4px 0 10px;
   text-wrap: balance;
 }
-.app-sub {
+.page-sub {
   color: var(--muted);
   max-width: 52ch;
   margin: 0 0 28px;
@@ -270,3 +298,91 @@ body {
   color: var(--muted);
   max-width: 56ch;
 }
+
+/* ---------- matchmaking demo ---------- */
+.queuer-card {
+  padding: 18px 22px;
+  background: var(--surface-2);
+}
+.queuer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.queuer-name { font-weight: 700; font-size: 0.98rem; }
+.queuer-meta { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+.queuer-stats { display: flex; gap: 20px; }
+.queuer-stat { display: flex; flex-direction: column; align-items: flex-end; }
+.queuer-stat span:first-child { font-size: 1.05rem; font-weight: 700; }
+.queuer-stat-label {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.search-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--line);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+@media (max-width: 560px) { .search-grid { grid-template-columns: 1fr; } }
+.search-panel { background: var(--surface); padding: 18px 20px; min-height: 220px; }
+.search-panel-legacy { border-left: 3px solid var(--muted); }
+.search-panel-fair { border-left: 3px solid var(--turf); }
+.search-subtitle { font-size: 0.82rem; color: var(--muted); margin: 0 0 14px; }
+
+.search-rounds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.search-round {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.82rem; color: var(--muted);
+  opacity: 0.4;
+}
+.search-round.active { opacity: 1; color: var(--text); }
+.search-round.found { color: var(--turf); font-weight: 600; }
+.round-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; flex: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .search-round.active .round-dot { animation: pulse-dot 1s ease-in-out infinite; }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.opponent-reveal {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+.opponent-name { font-weight: 700; font-size: 0.98rem; }
+.opponent-stats { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+.opponent-gaps { display: flex; gap: 14px; margin-top: 10px; font-size: 0.85rem; font-weight: 600; }
+.gap-loud { color: var(--bad); }
+.gap-quiet { color: var(--good); }
+.opponent-rationale { font-size: 0.82rem; color: var(--muted); margin: 10px 0 0; }
+
+.table-wrap { overflow-x: auto; }
+.pool-table { width: 100%; border-collapse: collapse; min-width: 480px; margin-top: 12px; }
+.pool-table th {
+  text-align: left; font-size: 0.68rem; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted); font-weight: 700;
+  padding: 0 10px 8px; border-bottom: 1px solid var(--line);
+}
+.pool-table td { padding: 8px 10px; font-size: 0.82rem; border-bottom: 1px solid var(--line); }
+.pool-table tr:last-child td { border-bottom: none; }
+.pool-name { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.pool-tag {
+  font-family: -apple-system, sans-serif;
+  font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 2px 6px; border-radius: 3px; font-weight: 700;
+}
+.tag-legacy { background: color-mix(in srgb, var(--muted) 22%, transparent); color: var(--muted); }
+.tag-fair { background: color-mix(in srgb, var(--turf) 20%, transparent); color: var(--turf); }
+.row-legacy { background: color-mix(in srgb, var(--muted) 8%, transparent); }
+.row-fair { background: color-mix(in srgb, var(--turf) 8%, transparent); }

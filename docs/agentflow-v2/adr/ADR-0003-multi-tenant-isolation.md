@@ -1,6 +1,7 @@
 # ADR-0003: Multi-Tenant Isolation via Postgres RLS
 
-**Status:** Proposed — to be implemented in Phase 1
+**Status:** Implemented (Phase 1, 2026-07-21) — see `../PHASE_1_TENANCY.md`
+for the schema, policies, and test results
 
 ## Context
 

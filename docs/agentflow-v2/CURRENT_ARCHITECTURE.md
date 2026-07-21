@@ -1,15 +1,36 @@
 # Current Architecture — DivinexAI-Infrastructure-OS
 
-**Status: N/A. No architecture exists in this repository yet.**
+**Status: Phase 1 first increment only.** Everything below is what actually
+exists in the repository as of this writing — not the target architecture
+(`IMPLEMENTATION_PLAN.md`), which remains a proposal for everything not yet
+built.
 
-There is one file (`README.md`) and no code. There is no frontend, backend,
-database, auth system, agent runtime, workflow engine, or deployment target to
-diagram. Any "current architecture" document written today would be inventing
-detail that isn't there, which the brief explicitly prohibits ("do not claim a
-route, integration, migration, or feature exists unless it was created and
-verified").
+## What exists
 
-This file will be rewritten to describe the *actual* system as it is built,
-starting after Phase 1 lands the shared domain foundation. Until then, treat
-the target architecture in `IMPLEMENTATION_PLAN.md` §2 as a proposal, not a
-description of present reality.
+- **Monorepo:** Bun-managed Turborepo workspace (`apps/*` + `packages/*`,
+  currently only `packages/*` — no `apps/*` yet, see `PHASE_1_TENANCY.md`).
+- **`packages/shared`** (`@repo/shared`) — tenancy domain types, a
+  Zod-validated env module, Supabase client factories
+  (`createServiceRoleClient`, `createUserScopedClient`), and server-side
+  tenant-authorization helpers (`assertTenantMembership`,
+  `assertTenantPermission`).
+- **`packages/eslint-config`, `packages/typescript-config`** — shared
+  tooling, conventions adopted from MediaForgeOS.
+- **`supabase/migrations/20260721000001_core_tenancy.sql`** — the only
+  schema that exists: `tenants`, `roles`, `permissions`, `role_permissions`,
+  `tenant_memberships`, `tenant_settings`, `tenant_feature_flags`, all with
+  RLS enabled and deny-by-default policies enforced via two
+  `security definer` helper functions.
+- **No application code beyond this** — no agent runtime, memory engine,
+  tool registry, workflow engine, governance layer, Sara, or any UI. All of
+  §VI–XIV of the source brief remain unbuilt.
+
+## What does not exist yet
+
+Everything in `GAP_ANALYSIS.md` not explicitly marked "Implemented" there.
+In particular: no `apps/web`, no live connection to an actual Supabase
+project (tested against a local RLS-faithful simulation only — see
+`PHASE_1_TENANCY.md` "Residual risks"), and none of Phases 2–9.
+
+This document should be updated again at the end of each phase, in place,
+rather than left to drift from what `IMPLEMENTATION_PLAN.md` merely proposed.

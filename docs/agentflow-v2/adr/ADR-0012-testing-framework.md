@@ -1,6 +1,7 @@
 # ADR-0012: Testing Framework & Database Test Conventions
 
-**Status:** Proposed — to be implemented starting Phase 1
+**Status:** Implemented (Phase 1, 2026-07-21) — Vitest + real-Postgres RLS
+testing in place for `packages/shared`; see `../PHASE_1_TENANCY.md`
 
 ## Context
 

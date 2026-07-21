@@ -20,7 +20,7 @@ in the original brief gets silently dropped.
 | 4 | Durable Workflow Engine | Missing |
 | 5 | Sara Executive Intelligence | Missing |
 | 6 | Human approval controls | Missing |
-| 7 | Multi-tenant security | Missing |
+| 7 | Multi-tenant security | **Partially implemented** — core schema + RLS (Phase 1); no agent/tool/workflow layer to secure yet |
 | 8 | Enterprise observability | Missing |
 | 9 | Reusable vertical OS integration | Missing |
 | 10 | Provider portability | Missing |
@@ -29,7 +29,7 @@ in the original brief gets silently dropped.
 
 | Group | Tables specified | Status |
 |---|---|---|
-| Core tenancy | tenants, tenant_memberships, roles, permissions, role_permissions, tenant_settings, tenant_feature_flags | Missing |
+| Core tenancy | tenants, tenant_memberships, roles, permissions, role_permissions, tenant_settings, tenant_feature_flags | **Implemented** (Phase 1, `PHASE_1_TENANCY.md`) — schema + RLS live and tested against real Postgres; not yet verified against a live Supabase project (residual risk) |
 | Agent runtime | agent_definitions, agent_versions, agent_instances, agent_sessions, agent_messages, agent_runs, agent_run_steps, agent_assignments, agent_capabilities, agent_policies, provider_configs, provider_routing_rules | Missing |
 | Business memory | memory_sources, memory_documents, memory_chunks, memory_facts, memory_entities, memory_relationships, memory_events, memory_summaries, memory_access_policies, memory_retention_policies, memory_ingestion_jobs, memory_retrieval_logs, memory_feedback, memory_versions | Missing |
 | Tool registry | tool_definitions, tool_versions, tool_connections, tool_credentials, tool_permissions, tool_execution_policies, tool_executions, tool_execution_attempts, tool_webhooks, tool_rate_limits | Missing |

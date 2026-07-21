@@ -1,0 +1,23 @@
+# Dependencies
+node_modules
+
+# Local env files — never commit real secrets
+.env
+.env.local
+.env.*.local
+
+# Turbo
+.turbo
+
+# Build outputs
+dist
+.next/
+out/
+
+# Misc
+.DS_Store
+*.pem
+
+# Editors
+.vscode/*
+!.vscode/extensions.json

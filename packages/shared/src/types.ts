@@ -61,3 +61,31 @@ export interface TenantFeatureFlag {
   createdAt: string;
   updatedAt: string;
 }
+
+export type ActorType = "user" | "service" | "agent" | "system";
+
+export interface AuditEvent {
+  id: string;
+  /** Null for a platform-level event not scoped to a tenant. */
+  tenantId: string | null;
+  actorUserId: string | null;
+  actorType: ActorType;
+  eventType: string;
+  resourceType: string | null;
+  resourceId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export type SecuritySeverity = "info" | "warning" | "critical";
+
+export interface SecurityEvent {
+  id: string;
+  tenantId: string | null;
+  actorUserId: string | null;
+  severity: SecuritySeverity;
+  eventType: string;
+  description: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { asUser, resetAndMigrate } from "./setupTestDb.js";
+import { seedCoreFixtures } from "./seedFixtures.js";
 
 /**
  * Exercises the RLS policies in
@@ -27,73 +28,18 @@ let userAOwner: string; // member of tenant A with the "owner" role (has tenant.
 let userAMember: string; // member of tenant A with the plain "member" role (no elevated perms)
 let userB: string; // member of tenant B only
 
-async function seed(): Promise<void> {
-  const perms = ["tenant.manage", "tenant.manage_members", "tenant.manage_roles"];
-  for (const key of perms) {
-    await ownerPool.query(
-      "insert into permissions (key, category) values ($1, 'tenant') on conflict (key) do nothing",
-      [key],
-    );
-  }
-
-  const { rows: tenantRows } = await ownerPool.query<{ id: string }>(
-    `insert into tenants (name, slug) values ('Tenant A', 'tenant-a'), ('Tenant B', 'tenant-b')
-     returning id`,
-  );
-  [tenantA, tenantB] = tenantRows.map((r) => r.id) as [string, string];
-
-  const { rows: userRows } = await ownerPool.query<{ id: string }>(
-    `insert into auth.users (email) values ('a-owner@example.com'), ('a-member@example.com'), ('b@example.com')
-     returning id`,
-  );
-  [userAOwner, userAMember, userB] = userRows.map((r) => r.id) as [string, string, string];
-
-  async function makeRole(tenantId: string, key: string, permKeys: string[]) {
-    const { rows } = await ownerPool.query<{ id: string }>(
-      "insert into roles (tenant_id, key, name) values ($1, $2, $2) returning id",
-      [tenantId, key],
-    );
-    const roleId = rows[0]!.id;
-    for (const permKey of permKeys) {
-      await ownerPool.query(
-        `insert into role_permissions (role_id, permission_id)
-         select $1, id from permissions where key = $2`,
-        [roleId, permKey],
-      );
-    }
-    return roleId;
-  }
-
-  const ownerRoleA = await makeRole(tenantA, "owner", perms);
-  const memberRoleA = await makeRole(tenantA, "member", []);
-  const ownerRoleB = await makeRole(tenantB, "owner", perms);
+beforeAll(async () => {
+  await resetAndMigrate(ownerPool);
+  ({ tenantA, tenantB, userAOwner, userAMember, userB } = await seedCoreFixtures(ownerPool));
 
   await ownerPool.query(
-    "insert into tenant_memberships (tenant_id, user_id, role_id) values ($1, $2, $3)",
-    [tenantA, userAOwner, ownerRoleA],
-  );
-  await ownerPool.query(
-    "insert into tenant_memberships (tenant_id, user_id, role_id) values ($1, $2, $3)",
-    [tenantA, userAMember, memberRoleA],
-  );
-  await ownerPool.query(
-    "insert into tenant_memberships (tenant_id, user_id, role_id) values ($1, $2, $3)",
-    [tenantB, userB, ownerRoleB],
-  );
-
-  await ownerPool.query(
-    "insert into tenant_settings (tenant_id, settings) values ($1, $2), ($3, $4)",
-    [tenantA, { theme: "a" }, tenantB, { theme: "b" }],
+    "insert into tenant_settings (tenant_id, settings) values ($1, $2::jsonb), ($3, $4::jsonb)",
+    [tenantA, JSON.stringify({ theme: "a" }), tenantB, JSON.stringify({ theme: "b" })],
   );
   await ownerPool.query(
     "insert into tenant_feature_flags (tenant_id, key, enabled) values ($1, 'beta', true), ($2, 'beta', false)",
     [tenantA, tenantB],
   );
-}
-
-beforeAll(async () => {
-  await resetAndMigrate(ownerPool);
-  await seed();
 });
 
 afterAll(async () => {

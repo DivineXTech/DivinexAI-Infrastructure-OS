@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { Pool } from "pg";
@@ -9,18 +9,21 @@ const AUTH_SHIM_SQL = readFileSync(
   path.join(here, "sql", "000_local_auth_shim.sql"),
   "utf8",
 );
-const CORE_TENANCY_SQL = readFileSync(
-  path.join(
-    here,
-    "..",
-    "..",
-    "..",
-    "supabase",
-    "migrations",
-    "20260721000001_core_tenancy.sql",
-  ),
-  "utf8",
-);
+
+const MIGRATIONS_DIR = path.join(here, "..", "..", "..", "supabase", "migrations");
+
+/**
+ * Loads every migration in `supabase/migrations` in filename order (the same
+ * timestamp-prefixed convention the Supabase CLI uses), so the test suite
+ * always exercises the exact, complete set of shipped migrations rather than
+ * a hand-maintained subset that could silently drift out of sync.
+ */
+function loadMigrations(): string[] {
+  return readdirSync(MIGRATIONS_DIR)
+    .filter((name) => name.endsWith(".sql"))
+    .sort()
+    .map((name) => readFileSync(path.join(MIGRATIONS_DIR, name), "utf8"));
+}
 
 /**
  * Grants mirroring Supabase's real `authenticated` role: broad CRUD grants at
@@ -48,7 +51,9 @@ export async function resetAndMigrate(pool: Pool): Promise<void> {
   await pool.query("drop schema public cascade");
   await pool.query("create schema public");
   await pool.query(AUTH_SHIM_SQL);
-  await pool.query(CORE_TENANCY_SQL);
+  for (const migration of loadMigrations()) {
+    await pool.query(migration);
+  }
   await pool.query(GRANT_AUTHENTICATED_SQL);
 }
 

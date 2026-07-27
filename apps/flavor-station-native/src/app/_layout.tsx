@@ -4,32 +4,43 @@ import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
+import { AuthProvider, useAuth } from '@/lib/auth-context';
+
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
-export default function RootLayout() {
+function RootNavigator() {
+  const { loading: authLoading } = useAuth();
   const [fontsLoaded] = useFonts({
     BebasNeue: BebasNeue_400Regular,
   });
 
+  const ready = fontsLoaded && !authLoading;
+
   useEffect(() => {
-    if (fontsLoaded) {
+    if (ready) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded]);
+  }, [ready]);
 
-  if (!fontsLoaded) {
+  if (!ready) {
     return null;
   }
 
+  return <Stack screenOptions={{ headerShown: false }} />;
+}
+
+export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Flavor Station brand is single-theme (dark); ThemeProvider is fixed rather
-          than following system color scheme so the app never shows an unbranded light UI. */}
-      <ThemeProvider value={DarkTheme}>
-        <Stack screenOptions={{ headerShown: false }} />
-      </ThemeProvider>
+      <AuthProvider>
+        {/* Flavor Station brand is single-theme (dark); ThemeProvider is fixed rather
+            than following system color scheme so the app never shows an unbranded light UI. */}
+        <ThemeProvider value={DarkTheme}>
+          <RootNavigator />
+        </ThemeProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

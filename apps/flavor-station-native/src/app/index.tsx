@@ -17,6 +17,9 @@ export default function HomeScreen() {
       <Link href="/style-guide">
         <ThemedText type="linkPrimary">View design system →</ThemedText>
       </Link>
+      <Link href="/account">
+        <ThemedText type="linkPrimary">Account →</ThemedText>
+      </Link>
     </ScreenContainer>
   );
 }

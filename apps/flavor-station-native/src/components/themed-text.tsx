@@ -4,7 +4,16 @@ import { Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?:
+    | 'default'
+    | 'title'
+    | 'subtitle'
+    | 'eyebrow'
+    | 'small'
+    | 'smallBold'
+    | 'link'
+    | 'linkPrimary'
+    | 'code';
   themeColor?: ThemeColor;
 };
 
@@ -14,12 +23,13 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
   return (
     <Text
       style={[
-        { color: theme[themeColor ?? 'foreground'] },
+        { color: theme[themeColor ?? (type === 'eyebrow' ? 'accent' : 'foreground')] },
         type === 'default' && styles.default,
         type === 'title' && styles.title,
+        type === 'subtitle' && styles.subtitle,
+        type === 'eyebrow' && styles.eyebrow,
         type === 'small' && styles.small,
         type === 'smallBold' && styles.smallBold,
-        type === 'subtitle' && styles.subtitle,
         type === 'link' && styles.link,
         type === 'linkPrimary' && styles.linkPrimary,
         type === 'code' && styles.code,
@@ -46,15 +56,26 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: 500,
   },
+  // Web's .font-display class (Bebas Neue + 0.08em tracking), used for h1-h3.
   title: {
+    fontFamily: Fonts.display,
     fontSize: 48,
-    fontWeight: 600,
     lineHeight: 52,
+    letterSpacing: 48 * 0.08,
   },
   subtitle: {
+    fontFamily: Fonts.display,
     fontSize: 32,
-    lineHeight: 44,
-    fontWeight: 600,
+    lineHeight: 40,
+    letterSpacing: 32 * 0.08,
+  },
+  // Web's recurring section-eyebrow pattern: text-xs uppercase tracking-[0.35em] text-accent
+  eyebrow: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: 12 * 0.35,
   },
   link: {
     lineHeight: 30,
@@ -63,7 +84,7 @@ const styles = StyleSheet.create({
   linkPrimary: {
     lineHeight: 30,
     fontSize: 14,
-    color: '#3c87f7',
+    color: '#f97316',
   },
   code: {
     fontFamily: Fonts.mono,

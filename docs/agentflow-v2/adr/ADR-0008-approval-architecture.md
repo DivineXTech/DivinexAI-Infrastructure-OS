@@ -1,9 +1,9 @@
 # ADR-0008: Approval Architecture
 
-**Status:** Direction accepted at Phase 0; concrete design finalized at the
-Phase 4 planning gate (addendum below, unimplemented pending review — see
-`../PHASE_4_GOVERNANCE_APPROVALS.md` for the full design this addendum
-summarizes).
+**Status:** Direction accepted at Phase 0; concrete design conditionally
+approved and revised at the Phase 4 planning gate (addendum below);
+implementation proceeding — see `../PHASE_4_GOVERNANCE_APPROVALS.md` for
+the full, current design this addendum summarizes.
 
 ## Context
 
@@ -46,38 +46,57 @@ new ADR, since it's the same decision ("deterministic rules engine, not an
 LLM, is the approval authority") reaching its detailed form.
 
 - **New package `packages/governance`** owns policy definitions/versions,
-  evaluation, risk classification, approval requests/decisions/assignments,
-  separation of duties, escalation, and governance events — the full list
-  in `PHASE_4_GOVERNANCE_APPROVALS.md` §0. `packages/shared/src/policy.ts`'s
-  `PgTenantAccessEvaluator` is **reused, not replaced** — it answers "does
-  this actor hold permission key X in this tenant" (unchanged since Phase
-  1), which `governance`'s functions call before doing anything else,
-  exactly as `agent-runtime`/`workflow-engine` already do. `governance`
-  adds a materially richer capability on top: evaluating versioned,
-  structured policy documents against runtime context to produce one of
-  five effects, and running the resulting approval workflow — a different
-  concern from "is this a member with this permission key," not a
-  duplicate of it.
+  risk classification definitions/versions, evaluation, approval
+  requests/decisions/assignments, separation of duties, escalation, and
+  governance events — the full list in `PHASE_4_GOVERNANCE_APPROVALS.md`
+  §0. `packages/shared/src/policy.ts`'s `PgTenantAccessEvaluator` is
+  **reused, not replaced** — it answers "does this actor hold permission
+  key X in this tenant" (unchanged since Phase 1), which `governance`'s
+  functions call before doing anything else, exactly as
+  `agent-runtime`/`workflow-engine` already do.
+- **Risk classification is versioned and immutable once published**
+  (revised at review from an originally-proposed mutable lookup table):
+  `risk_classification_definitions`/`risk_classification_versions` mirror
+  `policy_versions` exactly, and every `policy_evaluations` row records the
+  exact version consulted. A tenant policy can only raise risk above the
+  resolved classification version's level, never below it — enforced
+  structurally by a `max()` in the merge algorithm, not a separate check.
 - **Deterministic policy evaluation** is a pure function of (published
   policy version rows applicable to the tenant/action + tenant overrides +
-  the workflow step's own `approvalRequired` floor + runtime context) →
-  `PolicyDecision`. No model call anywhere in this path — an agent's own
-  `selfAssessedRiskLevel` (new, advisory-only field on
-  `AgentExecutionResult`) can inform which conditions match, but never
-  substitutes for the evaluator's own classification, and can never itself
-  produce `ALLOW`.
+  the resolved risk-classification version + the workflow step's own
+  `approvalRequired` floor + runtime context) → `PolicyDecision`, using the
+  precedence `BLOCK > DENY > ESCALATE > REQUIRE_APPROVAL > ALLOW`. No model
+  call anywhere in this path — an agent's own `selfAssessedRiskLevel` (new,
+  advisory-only field on `AgentExecutionResult`) can inform which
+  conditions match, but never substitutes for the evaluator's own
+  classification, and can never itself produce `ALLOW`.
 - **Immutable action snapshots** bind an approval request to the exact
   proposed action, so a changed proposal cannot be authorized by a
   stale approval — enforced by a content hash (`platform-kernel`'s
   `computeContentHash`) and automatic supersession.
+- **No tenant client can mutate approval state, ever** (revised at review
+  from an originally-proposed decider-permission-gated `UPDATE`):
+  `approval_requests` and `approval_decisions` are select-only for every
+  tenant role — creation, decisions, resumption, and cancellation are
+  exclusively governed application commands
+  (`createApprovalRequest`/`recordApprovalDecision`/`cancelApprovalRequest`/
+  `resumeApprovedRequest`) over the trusted service-role/owner connection.
 - **Exactly-once resumption** reuses the same atomic-conditional-UPDATE
   pattern Phase 3 built for step leasing (`ADR-0004`'s addendum): a
   `continuation_committed` flag flips exactly once via a status-and-flag-
   gated `UPDATE`, and `workflow-engine`'s own step-status transition
   (`WAITING_FOR_APPROVAL → RUNNING → SUCCEEDED`, both already-legal
-  transitions from Phase 3 — no change to `stepStatus.ts` was needed) is
-  itself gated on the step's current status, giving two independent
+  transitions from Phase 3 — no change to `stepStatus.ts` was needed there)
+  is itself gated on the step's current status, giving two independent
   idempotency gates at each layer.
+- **Run-level completion resolved in this phase.**
+  `workflow-engine.reconcileWorkflowRunOutcome` derives run status from
+  persisted step outcomes using the existing run transition table (Phase
+  1, unchanged except one additive transition,
+  `WAITING_FOR_APPROVAL → BLOCKED`) — idempotent, concurrency-safe (every
+  update gated on current status), and owned entirely by `workflow-engine`;
+  `governance` only calls it with a run ID. Closes the gap Phase 3 left
+  open, for every workflow, not only governance-gated ones.
 - **No new authorization mechanism.** `tenant.decide_approvals`,
   `tenant.manage_policies`, `tenant.view_approvals`,
   `tenant.view_governance_events` are ordinary permission keys checked via

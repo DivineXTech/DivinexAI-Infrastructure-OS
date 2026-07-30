@@ -264,23 +264,29 @@ Phase 0 and Phase 1 are complete and are not restarted or renumbered:
   workflow: `client_solution_assessment` v1.0.0. See
   `FILE_CHANGE_PLAN.md` for tables/migrations/RLS/services.
 - **Phase 4 — Governance, Policies, Risk Decisions, and Human Approvals.**
-  Planning gate complete, implementation not yet started — see
+  Conditionally approved and revised; implementation proceeding — see
   `PHASE_4_GOVERNANCE_APPROVALS.md` for the full design. New
   `packages/governance`: platform-owned `policy_definitions`/
-  `policy_versions` (immutable once published, same pattern as prior
-  phases) + `risk_classifications`; tenant-owned
+  `policy_versions` + `risk_classification_definitions`/
+  `risk_classification_versions` (both immutable once published, same
+  pattern as prior phases — risk classification is versioned, not a
+  mutable lookup table, per review); tenant-owned
   `tenant_policy_assignments`/`tenant_policy_overrides`/`policy_evaluations`/
   `approval_requests`/`approval_decisions`/`approval_assignments`/
   `governance_events`. Deterministic six-tier policy precedence producing
-  one of five effects (`ALLOW`/`DENY`/`REQUIRE_APPROVAL`/`BLOCK`/`ESCALATE`);
-  an 8-state approval-request lifecycle with quorum, distinct-approver, and
-  separation-of-duties enforcement; immutable action snapshots with
-  automatic supersession on drift; exactly-once workflow-step resumption
-  reusing Phase 3's atomic-conditional-UPDATE leasing pattern (no
-  `workflow_steps` schema change needed — `WAITING_FOR_APPROVAL`'s legal
-  transitions already support this). `workflow-engine` reacts to
+  one of five effects (`BLOCK`/`DENY`/`ESCALATE`/`REQUIRE_APPROVAL`/`ALLOW`,
+  in that precedence order); an 8-state approval-request lifecycle with
+  quorum, distinct-approver, and separation-of-duties enforcement;
+  immutable action snapshots with automatic supersession on drift;
+  `approval_requests`/`approval_decisions` are select-only for every
+  tenant role — all mutation happens through governed application
+  commands, never a client-writable row; exactly-once workflow-step
+  resumption reusing Phase 3's atomic-conditional-UPDATE leasing pattern
+  (no `workflow_steps` schema change needed). `workflow-engine` reacts to
   governance's decisions but never determines whether approval is
-  required; `agent-runtime` declares intended actions but never decides
+  required, and now also derives run-level completion from step outcomes
+  (`reconcileWorkflowRunOutcome`, resolving the Phase 3 auto-completion
+  gap); `agent-runtime` declares intended actions but never decides
   approvals. Builds on `packages/shared/src/policy.ts`'s
   `PgTenantAccessEvaluator`, reused unchanged for permission-key checks —
   not replaced. Reference workflow: `client_solution_assessment` v1.1.0
@@ -334,24 +340,24 @@ how. Current open items, carried forward rather than newly discovered:
    `CapabilityResolver` seam (§4b) was added at the same time so the
    workflow manifest schema can support capability-based routing later
    without a breaking change; it ships unimplemented in Phase 3.
-6. **`risk_classifications` versioning (Phase 4, pending confirmation).**
-   Designed as a simple, non-versioned platform default-risk-per-action
-   catalog rather than an immutable `policy_versions`-style artifact — a
-   deliberate reading of the brief's versioning requirement as applying to
-   policy _versions_ asserting risk, not the baseline catalog itself.
-   Flagged for explicit sign-off. See `PHASE_4_GOVERNANCE_APPROVALS.md` §16
-   blocker #1.
-7. **Two contract extensions to already-shipped code (Phase 4, pending
-   confirmation).** `AgentExecutionResult` (Phase 1) gains
+6. **~~`risk_classifications` versioning~~ — resolved, revised.** Replaced
+   by `risk_classification_definitions`/`risk_classification_versions`,
+   immutable once published, exactly mirroring `policy_versions`; every
+   `policy_evaluations` row records the exact version consulted. See
+   `PHASE_4_GOVERNANCE_APPROVALS.md` §1, §4c.
+7. **Two contract extensions to already-shipped code — confirmed
+   additive.** `AgentExecutionResult` (Phase 1) gains
    `intendedAction`/`selfAssessedRiskLevel`/`requestedCapabilities`;
-   `WorkflowStepDefinitionSchema` (Phase 3) gains `governedAction`. Both
-   additive/backward-compatible, but touch prior-phase contracts — flagged
-   per instruction. See `PHASE_4_GOVERNANCE_APPROVALS.md` §9, §12, §16
-   blocker #2.
-8. **`approval_requests`' asymmetric per-command RLS (Phase 4, pending
-   confirmation).** The first table in this codebase with no insert policy
-   at all and a decider/canceller-only update policy, rather than the
-   uniform select/write-all pair used everywhere else. See
-   `PHASE_4_GOVERNANCE_APPROVALS.md` §2, §16 blocker #3.
+   `WorkflowStepDefinitionSchema` (Phase 3) gains `governedAction`;
+   `workflow-engine`'s run-level `status.ts` gains one additive transition
+   (`WAITING_FOR_APPROVAL → BLOCKED`). All backward-compatible with
+   required compatibility tests. See `PHASE_4_GOVERNANCE_APPROVALS.md` §9,
+   §12, §12a, §15.
+8. **~~`approval_requests`' asymmetric per-command RLS~~ — resolved,
+   revised.** No client mutation of `approval_requests`/`approval_decisions`
+   at all — select-only for every tenant role; every mutation (creation,
+   decisions, resumption, cancellation) happens through governed
+   application commands over the trusted connection. See
+   `PHASE_4_GOVERNANCE_APPROVALS.md` §2, §7.
 
 No other blocker is currently open.

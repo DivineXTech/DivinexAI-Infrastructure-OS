@@ -241,9 +241,25 @@ Phase 0 and Phase 1 are complete and are not restarted or renumbered:
   (platform) and `TenantAgentLifecycleStatus` (tenant); define and register
   all six initial agents (Sara, Nova, Forge, Guardian, Reven, Pulse) — mock
   executable only, none reach `ACTIVE`. See `FILE_CHANGE_PLAN.md`.
-- **Phase 3 — Workflow Runtime and Durable Execution.** `workflow_instances`/
-  `workflow_step_runs`/`workflow_events` persistence, the state-machine
-  engine consuming `packages/workflow-engine`'s status contract, `apps/worker`.
+- **Phase 3 — Workflow Runtime and Durable Execution.** Planning gate
+  complete, implementation not yet started — see
+  `PHASE_3_WORKFLOW_RUNTIME.md` for the full design (supersedes this
+  section's original `workflow_instances`/`workflow_step_runs`/
+  `workflow_events` sketch). Platform-owned `workflow_definitions`/
+  `workflow_versions` (immutable once published, same pattern as Phase 2's
+  agents) + tenant-owned `tenant_workflows`/`workflow_runs`/`workflow_steps`/
+  `workflow_step_dependencies`/`workflow_execution_events`/
+  `workflow_dead_letters`. Reuses the existing 15-state run-level
+  `WorkflowStatusSchema` (Phase 1, unchanged) and adds a new 14-state
+  step-level state machine. Database-backed atomic-`UPDATE` leasing (no
+  external queue), append-only sequence-numbered execution-event ledger,
+  deterministic retry/dead-letter model, stateless `reconcileWorkflowRuntime`
+  worker-recovery function, `GovernanceGate` stub (real policy engine is
+  Phase 4), and mock agent execution added to `packages/agent-runtime`
+  (`MockAgentAdapter`, `resolveTenantAgent`, `assertAgentEligible` —
+  Phase 2 registered agents but never built the executor). Reference
+  workflow: `client_solution_assessment` v1.0.0. See
+  `FILE_CHANGE_PLAN.md` for tables/migrations/RLS/services.
 - **Phase 4 — Governance, Policies, and Approvals.** Full policy engine and
   approval-request lifecycle in `packages/governance`, building on
   `packages/shared/src/policy.ts`'s deterministic evaluator.
@@ -282,5 +298,18 @@ how. Current open items, carried forward rather than newly discovered:
 3. **Platform-wide vs. per-tenant agents — resolved.** Platform-defined,
    tenant-installed (`ADR-0013` addendum); this was the open question
    `FILE_CHANGE_PLAN.md`'s first draft surfaced.
+4. **`packages/shared/src/contentHash.ts` extraction (Phase 3, pending
+   sign-off).** Phase 3 needs the identical canonicalize-then-hash logic
+   Phase 2 built as `packages/agent-runtime/src/manifestHash.ts`. Proposed:
+   extract a shared `computeContentHash` per `CAPABILITY_PACKAGE_MAPPING.md`'s
+   own stated trigger ("a second package independently needing identical
+   logic"), with both packages thin-wrapping it. Flagged explicitly rather
+   than done silently — see `PHASE_3_WORKFLOW_RUNTIME.md` §14.
+5. **`workflow-engine` depending on `agent-runtime`'s `CANONICAL_AGENT_SLUGS`
+   (Phase 3, pending sign-off).** DAG validation (§4 item 9 of
+   `PHASE_3_WORKFLOW_RUNTIME.md`) needs to reject a workflow step whose
+   `agentSlug` isn't one of the six canonical agents. This is a new,
+   one-way `workflow-engine → agent-runtime` dependency (never the
+   reverse) — flagged for confirmation before it's built.
 
 No other blocker is currently open.

@@ -73,8 +73,21 @@ export { PgPlatformAgentCatalog } from "./platformCatalog.js";
 export type {
   TenantAgentInstallation,
   TenantAgentRegistry,
+  ResolvedTenantAgent,
 } from "./tenantAgentRegistry.js";
-export { PgTenantAgentRegistry } from "./tenantAgentRegistry.js";
+export {
+  PgTenantAgentRegistry,
+  resolveTenantAgent,
+  UnknownAgentSlugError,
+  TenantAgentNotInstalledError,
+} from "./tenantAgentRegistry.js";
+
+export { assertAgentEligible, AgentNotEligibleError } from "./eligibility.js";
+
+export type { MockAgentAdapter } from "./mockAgentAdapter.js";
+export { DeterministicMockAgentAdapter } from "./mockAgentAdapter.js";
+
+export { CatalogAgentResolver } from "./agentResolver.js";
 
 export { seedPlatformAgentCatalog } from "./seedPlatformCatalog.js";
 

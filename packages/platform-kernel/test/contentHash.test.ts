@@ -10,10 +10,16 @@ describe("computeContentHash", () => {
 
   it("produces identical hashes for objects with the same content but different key order at nested depths", () => {
     const a = {
-      metadata: { memoryPolicy: { scope: "tenant" }, approvalPolicy: { required: true } },
+      metadata: {
+        memoryPolicy: { scope: "tenant" },
+        approvalPolicy: { required: true },
+      },
     };
     const b = {
-      metadata: { approvalPolicy: { required: true }, memoryPolicy: { scope: "tenant" } },
+      metadata: {
+        approvalPolicy: { required: true },
+        memoryPolicy: { scope: "tenant" },
+      },
     };
     expect(computeContentHash(a)).toBe(computeContentHash(b));
   });

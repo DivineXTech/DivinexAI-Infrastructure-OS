@@ -3,6 +3,11 @@ import {
   assertValidTenantAgentTransition,
   type TenantAgentLifecycleStatus,
 } from "./tenantAgentLifecycle.js";
+import type {
+  AgentDefinition,
+  AgentVersion,
+  PlatformAgentCatalog,
+} from "./platformCatalog.js";
 
 export interface TenantAgentInstallation {
   id: string;
@@ -117,4 +122,63 @@ export class PgTenantAgentRegistry implements TenantAgentRegistry {
       [enabled, tenantAgentId],
     );
   }
+}
+
+export interface ResolvedTenantAgent {
+  installation: TenantAgentInstallation;
+  definition: AgentDefinition;
+  version: AgentVersion;
+}
+
+export class UnknownAgentSlugError extends Error {
+  constructor(public readonly agentSlug: string) {
+    super(`Unknown agent slug "${agentSlug}"`);
+    this.name = "UnknownAgentSlugError";
+  }
+}
+
+export class TenantAgentNotInstalledError extends Error {
+  constructor(
+    public readonly tenantId: string,
+    public readonly agentSlug: string,
+  ) {
+    super(`Tenant "${tenantId}" has no installation for agent "${agentSlug}"`);
+    this.name = "TenantAgentNotInstalledError";
+  }
+}
+
+/**
+ * Tenant agent resolution: given a workflow step's `agentSlug`, finds the
+ * tenant's installed agent, its pinned version, and its platform
+ * definition, ready for invocation. This is the `TenantAgentRegistry` leg
+ * of the "Workflow Engine -> TenantAgentRegistry -> PlatformAgentCatalog"
+ * resolution chain (`docs/agentflow-v2/PHASE_3_WORKFLOW_RUNTIME.md` §4a) —
+ * used at execution time, once a concrete `tenantId` is known. The
+ * publish-time, platform-only leg of that chain is `CatalogAgentResolver`
+ * (`agentResolver.ts`).
+ */
+export async function resolveTenantAgent(
+  registry: TenantAgentRegistry,
+  catalog: PlatformAgentCatalog,
+  tenantId: string,
+  agentSlug: string,
+): Promise<ResolvedTenantAgent> {
+  const definition = await catalog.getDefinitionBySlug(agentSlug);
+  if (!definition) {
+    throw new UnknownAgentSlugError(agentSlug);
+  }
+
+  const installation = await registry.get(tenantId, definition.id);
+  if (!installation) {
+    throw new TenantAgentNotInstalledError(tenantId, agentSlug);
+  }
+
+  const version = await catalog.getVersion(installation.agentVersionId);
+  if (!version) {
+    throw new Error(
+      `Agent version "${installation.agentVersionId}" not found for installation "${installation.id}"`,
+    );
+  }
+
+  return { installation, definition, version };
 }

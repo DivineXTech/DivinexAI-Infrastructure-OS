@@ -20,7 +20,7 @@
 set -euo pipefail
 
 PSQL="sudo -u postgres psql"
-DB_NAMES=(agentflow_test agentflow_test_agent_runtime)
+DB_NAMES=(agentflow_test agentflow_test_agent_runtime agentflow_test_workflow_engine)
 
 echo "==> Ensuring postgres superuser has a known local password (test-only)"
 $PSQL -c "ALTER ROLE postgres PASSWORD 'postgres';"

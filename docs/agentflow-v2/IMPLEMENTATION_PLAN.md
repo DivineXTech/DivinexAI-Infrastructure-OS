@@ -244,9 +244,9 @@ Phase 0 and Phase 1 are complete and are not restarted or renumbered:
   (platform) and `TenantAgentLifecycleStatus` (tenant); define and register
   all six initial agents (Sara, Nova, Forge, Guardian, Reven, Pulse) — mock
   executable only, none reach `ACTIVE`. See `FILE_CHANGE_PLAN.md`.
-- **Phase 3 — Workflow Runtime and Durable Execution.** Planning gate
-  complete, implementation not yet started — see
-  `PHASE_3_WORKFLOW_RUNTIME.md` for the full design (supersedes this
+- **Phase 3 — Workflow Runtime and Durable Execution.** Complete, tested
+  (299 repo-wide tests) — see `PHASE_3_WORKFLOW_RUNTIME.md` for the full
+  design and completion summary (supersedes this
   section's original `workflow_instances`/`workflow_step_runs`/
   `workflow_events` sketch). Platform-owned `workflow_definitions`/
   `workflow_versions` (immutable once published, same pattern as Phase 2's

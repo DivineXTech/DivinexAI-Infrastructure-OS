@@ -1,16 +1,86 @@
-# Phase 3 — Workflow Runtime and Durable Execution (Design)
+# Phase 3 — Workflow Runtime and Durable Execution
 
-**Status: Architecture approved.** The base design below was approved with
-three refinements, incorporated in this revision: (1) content-hashing
-primitives live in a new `packages/platform-kernel`, not
-`packages/shared` (`ADR-0014`); (2) agent resolution for DAG validation goes
-through an injected `AgentResolver` abstraction, not a compile-time
-dependency on `agent-runtime`'s `CANONICAL_AGENT_SLUGS`; (3) the workflow
-manifest's step-assignment schema is a discriminated union
-(`agentSlug` | `capability`) from the start, so capability-based routing can
-be introduced later without an incompatible schema change — Phase 3 itself
-only implements and exercises the `agentSlug` branch. Implementation
-proceeds from this revision.
+**Status: Complete and tested.** Stopping here for review per instruction —
+do not proceed to Phase 4 (Governance, Policies, and Approvals) without
+sign-off. The design below was approved with three refinements — (1)
+content-hashing primitives in a new `packages/platform-kernel` instead of
+`packages/shared` (`ADR-0014`); (2) agent resolution via an injected
+`AgentResolver` instead of a compile-time dependency on `agent-runtime`'s
+`CANONICAL_AGENT_SLUGS`; (3) a discriminated-union step-assignment schema
+(`agentSlug` | `capability`) so capability-based routing can be added later
+without a breaking change — and implemented exactly as revised. Sections
+1–17 below are the as-built design (kept as the single reference document
+rather than split into a separate completion doc, since nothing deviated
+from what was approved). See the Completion Summary immediately below for
+what was actually built, tested, and validated.
+
+## Completion Summary
+
+**New package:** `packages/platform-kernel` (`ADR-0014`) —
+`computeContentHash` (canonicalize + sha256), the one shared primitive
+`agent-runtime` and `workflow-engine`'s `manifestHash.ts` both thin-wrap.
+
+**New in `packages/workflow-engine/src/`:** `stepStatus.ts` (14-state step
+lifecycle), `workflowVersionLifecycle.ts`, `manifest.ts`
+(`WorkflowManifest` schema + `validateWorkflowManifest`), `manifestHash.ts`,
+`dag.ts` (pure graph algorithms), `agentResolver.ts`/`capabilityResolver.ts`
+(resolution-seam interfaces — `capabilityResolver.ts` has no
+implementation, by design), `platformWorkflowCatalog.ts`,
+`tenantWorkflowRegistry.ts`, `seedPlatformWorkflowCatalog.ts`,
+`provisionTenantWorkflow.ts`, `workflowRunService.ts` (create/materialize/
+cancel/resume-after-approval), `stepScheduler.ts` (`computeReadySteps`),
+`stepLeasing.ts` (claim/markRunning/renew/commit — `markStepRunning` was
+added beyond the original file-tree bullet list, as the necessary
+LEASED→RUNNING transition point), `retryPolicy.ts`, `executionEvents.ts`
+(sequence-locked append), `recovery.ts` (`reconcileWorkflowRuntime`),
+`governanceGate.ts` (`StaticGovernanceGate` stub), and
+`reference/clientSolutionAssessment.ts` (the v1.0.0 manifest).
+
+**New in `packages/agent-runtime/src/`:** `mockAgentAdapter.ts`
+(`DeterministicMockAgentAdapter`), `eligibility.ts`
+(`assertAgentEligible`), `agentResolver.ts` (`CatalogAgentResolver`,
+structurally satisfying `workflow-engine`'s `AgentResolver` with zero
+compile-time dependency between the two packages in either direction).
+`tenantAgentRegistry.ts` extended with `resolveTenantAgent`.
+`manifestHash.ts` modified to thin-wrap `platform-kernel`.
+
+**Two migrations** (`20260721000006_workflow_platform_catalog.sql`,
+`20260721000007_tenant_workflow_installations.sql`) plus matching
+rollbacks — validated for real against local Postgres: applied in order,
+inspected resulting tables/policies/indexes against this design, rolled
+back in reverse order (confirmed Phase 1/2 data untouched), then
+re-applied cleanly.
+
+**New `apps/worker/`** — a thin polling driver (`reconcileWorkflowRuntime`
+→ `computeReadySteps` → claim/execute/commit every `READY` step). Smoke-
+tested as a real standalone process against a live local database: seeded
+the catalogs, materialized a `client_solution_assessment` run, ran the
+compiled worker for ~8 seconds with a 500ms poll interval, and confirmed
+all 7 steps reached `SUCCEEDED` through the worker's own polling loop
+alone (no test harness driving it).
+
+**Tests (actually executed):** 299 tests passing across the whole repo
+(`bunx turbo run test`, concurrent per-package execution, no cross-package
+DB races) — 30 (`shared`) + 5 (`platform-kernel`) + 103 (`agent-runtime`,
+up from 84) + 161 (`workflow-engine`, up from 22). Full coverage of §16's
+test matrix, including a genuine concurrent-claim race test
+(`stepLeasing.test.ts`), full worker-recovery reconciliation
+(`recovery.test.ts`), and an end-to-end reference-workflow integration test
+driving all seven steps through mock agent execution to
+`WAITING_FOR_APPROVAL` and back (`referenceWorkflow.test.ts`). Type-check
+and lint clean across all 5 touched/new packages (`platform-kernel`,
+`agent-runtime`, `workflow-engine`, `worker`, plus `shared` unchanged).
+
+**One real bug caught and fixed:** a cross-tenant-isolation test reused the
+same `$2` placeholder for both a `uuid` column and a `text` column in one
+`INSERT`, which Postgres rejects at parse time (`inconsistent types
+deduced for parameter $2`) — fixed by giving the second column its own
+placeholder.
+
+**Commits on `agentflow-v2/phase-1-tenancy-foundation`:** doc refinements
+(`6377a46`), `platform-kernel` (`c9367c1`), workflow-engine +
+agent-runtime source (`1739231`), migrations (`6729051`), test suites
+(`6a5e0c5`), `apps/worker` (`986c26c`).
 
 ## 0. Ownership recap (per the brief, unchanged)
 

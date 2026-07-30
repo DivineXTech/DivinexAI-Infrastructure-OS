@@ -92,6 +92,16 @@ already-approved stack, which outranks a sibling repo's convention:
 - Docker images deployed to Kubernetes/ArgoCD → superseded by the explicit,
   current working assumption of Vercel + Supabase (see `ADR-0011`).
 
+## Addendum: application naming and timing (2026-07-21, `ADR-0013`)
+
+The first application built against this stack is named `apps/admin`, not
+`apps/web` — there is no customer-facing web application in this repository
+and none is assumed to exist for reuse (`ADR-0013` §3). The Next.js
+recommendation above is not reversed, but its installation/pinning is
+deferred until the `apps/admin` increment is explicitly approved; no phase
+before that depends on a frontend framework being chosen. The durable
+worker (`apps/worker`, `ADR-0004`/`ADR-0011`) is unaffected by this note.
+
 Neither sibling repo offered a multi-tenant/RLS convention (MediaForgeOS is
 single-tenant B2C; afrogrow360-core has no code) or a test-framework
 convention (MediaForgeOS ships no automated tests) — those remain new

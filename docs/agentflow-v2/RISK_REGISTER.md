@@ -1,9 +1,9 @@
 # Risk Register — AgentFlow Pro v2
 
-Status at Phase 0: no code exists, so no *realized* risk exists yet. This
-register tracks risks that a greenfield build of this scope predictably runs
-into, so Phase 1+ can be checked against it rather than discovering these the
-hard way.
+Written at Phase 0, when no code existed yet — rows below predate Phase 1
+and are kept as originally written where still applicable. New rows are
+appended (not rewritten in place) as each phase surfaces risks specific to
+what was actually built, per this register's own closing note.
 
 | # | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|---|
@@ -17,7 +17,12 @@ hard way.
 | 8 | Stack decision (§10.1 of the implementation plan) made implicitly by whoever writes the first line of Phase 1 code, rather than confirmed with the business owner | High if not gated now | Medium — costly to reverse after several phases | Explicit open question raised before Phase 1 starts (this session) |
 | 9 | Vertical OS packages (RestaurantOS, BookOS, MediaForgeOS) drift into forking the runtime because it's faster short-term than building the extension contract properly | Medium | High — defeats the "shared runtime" architecture goal (§II, §XIII) | Folder-boundary rule: `verticals/*` may only contain manifests/templates, never a copy of `packages/*` |
 | 10 | Observability/audit logging accidentally captures raw prompts, secrets, or protected data (PII/PHI/financial) | Medium | Critical — security/compliance violation | Structured logging helpers that redact known-sensitive fields by default; security review (§XV) checks this explicitly before Phase 9 sign-off |
-| 11 | `-MediaForgeOS` (sibling repo, same org) already contains a real implementation that Phase 8's example manifest unknowingly duplicates | Low–Medium | Low–Medium — wasted effort, inconsistent patterns | Inspect that repo before writing the MediaForgeOS manifest (flagged in implementation plan §8) |
+| 11 | `-MediaForgeOS` (sibling repo, same org) already contains a real implementation that the vertical-OS example manifest unknowingly duplicates | Low–Medium | Low–Medium — wasted effort, inconsistent patterns | Inspect that repo before writing the MediaForgeOS manifest (now Phase 11, `ADR-0013`) |
+| 12 | Earlier rows in this register (and other Phase-0 docs) reference the *original* brief's phase numbering (e.g. "Phase 2," "Phase 5," "Phase 8," "Phase 9"), which no longer matches the renumbered sequence in `ADR-0013`/`IMPLEMENTATION_PLAN.md` §9 — a reader could act on a stale phase number | Medium | Low–Medium — confusion, wrong-phase work | Prefer capability names or ADR numbers over phase numbers when cross-referencing across docs written before `ADR-0013`; this row itself documents the drift rather than silently renumbering historical rows |
+| 13 | `packages/agent-runtime`'s existing `AgentStatusSchema` (`draft`/`evaluating`/`active`/`deprecated`/`disabled`) is inconsistent with the newly-agreed 8-stage agent lifecycle (`ADR-0013` §5); Phase 2 code could reference either vocabulary if not reconciled first | High if not addressed before Phase 2 registry work | Medium — inconsistent status checks, an agent reaching a state that skips lifecycle gates | Reconcile the schema as the first item of Phase 2 (`FILE_CHANGE_PLAN.md`), before any registry/persistence code depends on agent status |
+| 14 | Six named agents (Sara, Nova, Forge, Guardian, Reven, Pulse) create pressure to mark one "just this once" `ACTIVE` before it clears `EVALUATION_TESTED`/`APPROVAL_GOVERNED`, especially under delivery deadlines | Medium | Critical — unrestricted-autonomy exposure the lifecycle exists to prevent | Lifecycle transitions enforced in code (Phase 2), not by convention alone; `ACTIVE` unreachable except via the full ordered sequence, mirroring the workflow-status transition table's own deny-by-default design (`packages/workflow-engine`) |
+| 15 | `packages/shared` re-accumulates new capability code by default convenience (easiest place to add "just one more helper") despite the explicit instruction not to let it become a dumping ground | Medium | Medium — package-boundary erosion, defeats `ADR-0013`'s reconciliation | `CAPABILITY_PACKAGE_MAPPING.md` names the correct home for every capability area; new code reviewed against that table before landing in `packages/shared` |
+| 16 | Extended stretch of backend-only phases (2–9) with no `apps/admin` until Phase 10 makes real progress hard to observe end-to-end, tempting an early, unapproved admin UI | Low–Medium | Low — schedule/scope pressure, not a security risk | Tests and this documentation set are the interim "interface" for verifying progress; `apps/admin`/Next.js explicitly deferred per `ADR-0013` §3 until its own phase is approved |
 
 This register should gain rows, not just status updates, as each phase
 uncovers concrete risks specific to what was actually built — a generic risk

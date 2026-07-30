@@ -1,10 +1,14 @@
 # Implementation Plan — AgentFlow Pro v2
 
-Status: **Proposal, pending stack confirmation.** This document reflects a
-greenfield repository (see `REPOSITORY_AUDIT.md`). Nothing below has been
-built. Nothing should be built from this plan until the open questions in
-§10 are answered, per the brief's own working method (§XXII: "wait for
-approval before entering the next major phase").
+Status: **Confirmed and partially built.** §1's stack recommendation was
+approved; §10's original open questions are resolved (see the note at the
+end of §10). Phase 0 and Phase 1 (three increments) are complete — see
+`REPOSITORY_ASSESSMENT.md` for current state, `ADR-0013` for how a later,
+conflicting brief was reconciled against this plan, and §9 below for the
+phase sequence now in effect. Sections 3–8 (database strategy, provider
+abstraction, ADK boundary, memory architecture, workflow architecture,
+vertical OS contract) remain accurate *designs* for phases not yet
+built — read them as the plan for Phase 3 onward, not as already-implemented.
 
 ## 1. Recommended stack
 
@@ -51,54 +55,52 @@ itself leaves several strong hints rather than an explicit choice:
 This is a recommendation, not a decision — see §10 for what needs
 confirmation before Phase 1 starts.
 
-## 2. Proposed target folder structure
+## 2. Target folder structure (updated per `ADR-0013`)
 
 ```
 /
 ├── apps/
-│   └── web/                        # Next.js app (business UI + admin/developer views)
-│       ├── app/
-│       │   ├── (business)/         # Department activation, agent directory, approvals, memory center
-│       │   ├── (executive)/        # Sara / executive command center routes (§XII)
-│       │   ├── (admin)/            # Provider routing, tool registry, observability — technical views
-│       │   └── api/                # Thin route handlers delegating to packages/*
-│       └── ...
+│   ├── admin/                       # First application, later phase (Phase 10). NOT a customer-facing web app.
+│   │                                 # Framework (Next.js) not installed/pinned until this increment is approved.
+│   └── worker/                      # Durable execution process (Phase 3)
 ├── packages/
-│   ├── agent-runtime/              # AgentProvider, ModelProvider, AgentExecutor, etc. (§VI)
-│   │   ├── providers/
+│   ├── agent-runtime/               # BUILT: manifest.ts, executionContext.ts, executionResult.ts (Phase 1)
+│   │   ├── providers/                # Phase 5 — ModelProvider adapters
 │   │   │   ├── anthropic/
 │   │   │   ├── openai/
 │   │   │   ├── google-gemini/
-│   │   │   └── google-adk/         # Isolated adapter, feature-flagged, never imported outside this package
-│   │   └── routing/
-│   ├── memory-engine/              # Ingestion, trust states, retrieval, provenance (§VII–VIII)
-│   ├── tool-registry/              # Tool definitions, tenant connections, execution pipeline (§IX)
-│   │   └── adapters/               # gmail/, stripe/, whatsapp/, flutterwave/, paystack/, ... (mock-first)
-│   ├── workflow-engine/            # Durable workflow execution (§X)
-│   ├── governance/                 # Policy engine + approvals (§XI)
-│   ├── sara/                       # Executive intelligence, built as a consumer of the above, not a superuser (§XII)
-│   ├── vertical-os-sdk/            # VerticalOSManifest + template contracts (§XIII)
-│   ├── observability/              # Tracing, cost tracking, evaluation harness (§XIV)
-│   └── shared/                     # Cross-cutting types, tenant context, feature flags
+│   │   │   └── google-adk/          # Isolated adapter, feature-flagged, never imported outside this package
+│   │   └── routing/                  # Phase 5 — provider routing
+│   ├── memory-engine/                # Phase 6 — ingestion, trust states, retrieval, provenance
+│   ├── tool-registry/                # Phase 5 — tool definitions, tenant connections, execution pipeline
+│   │   └── adapters/                 # gmail/, stripe/, whatsapp/, flutterwave/, paystack/, ... (mock-first)
+│   ├── workflow-engine/              # BUILT: status.ts (Phase 1); persistence/engine is Phase 3
+│   ├── governance/                   # Phase 4 — policy engine + approvals
+│   ├── sara/                         # Phase 7 — executive intelligence, a consumer of the above, not a superuser
+│   ├── vertical-os-sdk/              # Phase 11 — VerticalOSManifest + template contracts
+│   ├── observability/                # Phase 9 (narrow start already in packages/shared/src/events.ts)
+│   ├── shared/                       # BUILT, Phase 1 — cross-cutting tenancy types, auth helpers, policy evaluator,
+│   │                                  # feature flags, tenant settings, audit/security events. Not refactored into
+│   │                                  # the packages above except with clear ownership — see CAPABILITY_PACKAGE_MAPPING.md
+│   ├── eslint-config/                # BUILT, Phase 1
+│   └── typescript-config/            # BUILT, Phase 1
 ├── supabase/
-│   ├── migrations/                 # SQL migrations, one concern per file
-│   └── policies/                   # RLS policy definitions kept alongside schema
-├── verticals/
-│   ├── restaurant-os/              # Manifest + templates only — installs into shared runtime, does not fork it
+│   ├── migrations/                   # BUILT — 3 migrations so far (Phase 1)
+│   └── migrations_rollback/          # BUILT — verified rollback per migration
+├── verticals/                        # Phase 11
+│   ├── restaurant-os/                # Manifest + templates only — installs into shared runtime, does not fork it
 │   ├── book-os/
 │   └── mediaforge-os/
-├── docs/agentflow-v2/              # This documentation set
-└── tests/
-    ├── unit/
-    ├── integration/
-    └── e2e/
+└── docs/agentflow-v2/                # This documentation set
 ```
 
-Rationale: every module in §VI–XIV maps to exactly one `packages/*` directory
-so the "no business-domain module may directly depend on a provider-specific
-SDK" rule (§II) is enforced by the folder boundary itself — only
-`agent-runtime/providers/*` may import a provider SDK, and only
-`google-adk/` may import Google's ADK package.
+Rationale unchanged: every capability maps to exactly one `packages/*`
+directory (`CAPABILITY_PACKAGE_MAPPING.md`) so "no business-domain module may
+directly depend on a provider-specific SDK" is enforced by the folder
+boundary itself — only `agent-runtime/providers/*` may import a provider
+SDK, and only `google-adk/` may import Google's ADK package. No
+`packages/database`, `packages/contracts`, `packages/policies`, etc. — see
+`ADR-0013` for why.
 
 ## 3. Database strategy
 
@@ -219,35 +221,60 @@ Before writing the MediaForgeOS example manifest, `DivineXTech/-MediaForgeOS`
 contains a working implementation, the manifest should describe how that
 gets *wrapped*, not duplicate it from scratch.
 
-## 9. Phase plan
+## 9. Phase plan (current, per `ADR-0013`)
 
-Follow §XX as written — there is no existing system whose migration order
-would justify reordering it. Given the greenfield state, Phase 0 is
-effectively complete once this plan is approved; Phase 1 (shared domain
-foundation: tenancy tables, RLS, feature flags, base service interfaces) is
-the next concrete unit of work.
+The original brief's own §XX sequence has been superseded by the phase
+sequence below, agreed after a later brief proposed a competing numbering.
+Phase 0 and Phase 1 are complete and are not restarted or renumbered:
 
-## 10. Open questions blocking Phase 1
+- **Phase 0 — Repository and architecture foundation.** Complete
+  (`REPOSITORY_AUDIT.md`, this plan, `RISK_REGISTER.md`, `ADR-0001`–`ADR-0012`).
+- **Phase 1 — Tenancy, RLS, authorization, settings, feature flags, audit
+  events, security events.** Complete, three increments
+  (`PHASE_1_TENANCY.md`, `PHASE_1_AUTHZ_AUDIT_FLAGS.md`,
+  `PHASE_1_AGENT_WORKFLOW_CONTRACTS.md`).
+- **Phase 2 — Agent Runtime Contracts and Registry.** Next. Reconcile
+  `AgentStatusSchema` with the agreed 8-stage agent lifecycle
+  (`ADR-0013` §5), build the agent registry, define and register all six
+  initial agents (Sara, Nova, Forge, Guardian, Reven, Pulse) — mock
+  executable only, none reach `ACTIVE`. See `FILE_CHANGE_PLAN.md`.
+- **Phase 3 — Workflow Runtime and Durable Execution.** `workflow_instances`/
+  `workflow_step_runs`/`workflow_events` persistence, the state-machine
+  engine consuming `packages/workflow-engine`'s status contract, `apps/worker`.
+- **Phase 4 — Governance, Policies, and Approvals.** Full policy engine and
+  approval-request lifecycle in `packages/governance`, building on
+  `packages/shared/src/policy.ts`'s deterministic evaluator.
+- **Phase 5 — Model and Tool Gateways.** Provider adapters (§4/§5 below),
+  tool registry and execution pipeline (§9 below, "Centralized Tool
+  Registry" in `GAP_ANALYSIS.md`).
+- **Phase 6 — Memory Engine.** §6 below (ingestion, trust states, retrieval).
+- **Phase 7 — Sara Executive Intelligence.**
+- **Phase 8 — Executive Agent Team.** Nova, Forge, Guardian, Reven, Pulse
+  reach `TOOL_ENABLED`/`APPROVAL_GOVERNED`/`ACTIVE` as their prerequisites
+  land in Phases 3–7.
+- **Phase 9 — Evaluation and Observability Expansion.** Full `observability`
+  package: traces, latency, cost, evaluation harness.
+- **Phase 10 — Admin Command Center.** `apps/admin`, the first application;
+  Next.js pinned/installed here, not before.
+- **Phase 11 — Vertical Agent Pods.** `packages/vertical-os-sdk`,
+  `verticals/*` manifests.
 
-These are the genuine blockers (brief §XXIII.14) — not broad discovery
-questions, but specific decisions that change what Phase 1's first migration
-and first package look like:
+## 10. Open questions
 
-1. **Stack confirmation** — approve the Next.js + Supabase (Postgres +
-   RLS + pgvector) recommendation in §1, or specify a different stack. This
-   determines the literal language Phase 1's code is written in.
-2. **House conventions** — should `DivineXTech/-MediaForgeOS`,
-   `afrogrow360-core`, or `africaone-landing` be inspected first for an
-   existing DivineXTech stack convention (auth provider, deployment target,
-   payment integration pattern) that this build should match instead of the
-   default above?
-3. **Hosting/deployment target** — Vercel, a VPS, or something else — affects
-   whether the workflow worker (§7) can run as a long-lived process or needs
-   to be scheduled-function-shaped from day one.
-4. **Branch and commit policy for this repo** — this session has no
-   pre-assigned branch for `divinexai-infrastructure-os` (unlike `jcode360`).
-   Confirm a branch name and whether Phase 0's docs should be pushed now or
-   held until Phase 1 code is ready to accompany them.
+The four questions originally listed here (stack, house conventions,
+hosting target, branch/commit policy) are **resolved** —
+`HOUSE_CONVENTION_REVIEW.md`, `ADR-0001`, `ADR-0011`, and the
+`agentflow-v2/phase-1-tenancy-foundation` branch history are the record of
+how. Current open items, carried forward rather than newly discovered:
 
-No other blocker prevents the repository audit itself — it's complete. These
-four gate Phase 1 specifically.
+1. **Live Supabase validation** (`PHASE_1_SUPABASE_VALIDATION.md`) — not yet
+   executed; no live Supabase project available in this environment. Blocks
+   anything that depends on real PostgREST/GoTrue runtime behavior; does not
+   block further local-Postgres-testable contract/schema work (Phase 2's
+   registry and migrations can proceed the same way Phase 1 did).
+2. **`AgentStatusSchema` reconciliation** — `packages/agent-runtime`'s
+   current status enum predates the agreed 8-stage agent lifecycle
+   (`ADR-0013` §5) and must be updated before Phase 2's registry references
+   agent status, to avoid two incompatible vocabularies coexisting.
+
+No other blocker is currently open.

@@ -263,9 +263,29 @@ Phase 0 and Phase 1 are complete and are not restarted or renumbered:
   Phase 2 registered agents but never built the executor). Reference
   workflow: `client_solution_assessment` v1.0.0. See
   `FILE_CHANGE_PLAN.md` for tables/migrations/RLS/services.
-- **Phase 4 — Governance, Policies, and Approvals.** Full policy engine and
-  approval-request lifecycle in `packages/governance`, building on
-  `packages/shared/src/policy.ts`'s deterministic evaluator.
+- **Phase 4 — Governance, Policies, Risk Decisions, and Human Approvals.**
+  Planning gate complete, implementation not yet started — see
+  `PHASE_4_GOVERNANCE_APPROVALS.md` for the full design. New
+  `packages/governance`: platform-owned `policy_definitions`/
+  `policy_versions` (immutable once published, same pattern as prior
+  phases) + `risk_classifications`; tenant-owned
+  `tenant_policy_assignments`/`tenant_policy_overrides`/`policy_evaluations`/
+  `approval_requests`/`approval_decisions`/`approval_assignments`/
+  `governance_events`. Deterministic six-tier policy precedence producing
+  one of five effects (`ALLOW`/`DENY`/`REQUIRE_APPROVAL`/`BLOCK`/`ESCALATE`);
+  an 8-state approval-request lifecycle with quorum, distinct-approver, and
+  separation-of-duties enforcement; immutable action snapshots with
+  automatic supersession on drift; exactly-once workflow-step resumption
+  reusing Phase 3's atomic-conditional-UPDATE leasing pattern (no
+  `workflow_steps` schema change needed — `WAITING_FOR_APPROVAL`'s legal
+  transitions already support this). `workflow-engine` reacts to
+  governance's decisions but never determines whether approval is
+  required; `agent-runtime` declares intended actions but never decides
+  approvals. Builds on `packages/shared/src/policy.ts`'s
+  `PgTenantAccessEvaluator`, reused unchanged for permission-key checks —
+  not replaced. Reference workflow: `client_solution_assessment` v1.1.0
+  (adds a `deliver_external` step gated on `communication.send.external`).
+  See `FILE_CHANGE_PLAN.md` for tables/migrations/RLS/services.
 - **Phase 5 — Model and Tool Gateways.** Provider adapters (§4/§5 below),
   tool registry and execution pipeline (§9 below, "Centralized Tool
   Registry" in `GAP_ANALYSIS.md`).
@@ -314,5 +334,24 @@ how. Current open items, carried forward rather than newly discovered:
    `CapabilityResolver` seam (§4b) was added at the same time so the
    workflow manifest schema can support capability-based routing later
    without a breaking change; it ships unimplemented in Phase 3.
+6. **`risk_classifications` versioning (Phase 4, pending confirmation).**
+   Designed as a simple, non-versioned platform default-risk-per-action
+   catalog rather than an immutable `policy_versions`-style artifact — a
+   deliberate reading of the brief's versioning requirement as applying to
+   policy _versions_ asserting risk, not the baseline catalog itself.
+   Flagged for explicit sign-off. See `PHASE_4_GOVERNANCE_APPROVALS.md` §16
+   blocker #1.
+7. **Two contract extensions to already-shipped code (Phase 4, pending
+   confirmation).** `AgentExecutionResult` (Phase 1) gains
+   `intendedAction`/`selfAssessedRiskLevel`/`requestedCapabilities`;
+   `WorkflowStepDefinitionSchema` (Phase 3) gains `governedAction`. Both
+   additive/backward-compatible, but touch prior-phase contracts — flagged
+   per instruction. See `PHASE_4_GOVERNANCE_APPROVALS.md` §9, §12, §16
+   blocker #2.
+8. **`approval_requests`' asymmetric per-command RLS (Phase 4, pending
+   confirmation).** The first table in this codebase with no insert policy
+   at all and a decider/canceller-only update policy, rather than the
+   uniform select/write-all pair used everywhere else. See
+   `PHASE_4_GOVERNANCE_APPROVALS.md` §2, §16 blocker #3.
 
 No other blocker is currently open.

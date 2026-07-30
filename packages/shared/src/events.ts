@@ -22,7 +22,10 @@ export interface RecordAuditEventInput {
   metadata?: Record<string, unknown>;
 }
 
-export async function recordAuditEvent(db: Queryable, input: RecordAuditEventInput): Promise<void> {
+export async function recordAuditEvent(
+  db: Queryable,
+  input: RecordAuditEventInput,
+): Promise<void> {
   await db.query(
     `insert into audit_events
        (tenant_id, actor_user_id, actor_type, event_type, resource_type, resource_id, metadata)

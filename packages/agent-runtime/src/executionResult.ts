@@ -59,6 +59,8 @@ export const AgentExecutionResultSchema = z.object({
 });
 export type AgentExecutionResult = z.infer<typeof AgentExecutionResultSchema>;
 
-export function parseAgentExecutionResult(payload: unknown): AgentExecutionResult {
+export function parseAgentExecutionResult(
+  payload: unknown,
+): AgentExecutionResult {
   return AgentExecutionResultSchema.parse(payload);
 }

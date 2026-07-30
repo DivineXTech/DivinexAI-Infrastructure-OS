@@ -14,7 +14,12 @@ function buildResult(overrides: Record<string, unknown> = {}) {
     approvalRequired: false,
     riskFlags: [],
     memoryCandidates: [
-      { category: "episodic", content: { note: "..." }, provenance: "pulse-agent-run", confidence: 0.8 },
+      {
+        category: "episodic",
+        content: { note: "..." },
+        provenance: "pulse-agent-run",
+        confidence: 0.8,
+      },
     ],
     evaluationMetadata: {
       modelUsed: "mock-model",
@@ -35,13 +40,23 @@ describe("parseAgentExecutionResult", () => {
 
   it("accepts a requested handoff", () => {
     const result = parseAgentExecutionResult(
-      buildResult({ requestedHandoff: { targetAgentId: "nova", reason: "needs re-planning" } }),
+      buildResult({
+        requestedHandoff: {
+          targetAgentId: "nova",
+          reason: "needs re-planning",
+        },
+      }),
     );
-    expect(result.requestedHandoff).toEqual({ targetAgentId: "nova", reason: "needs re-planning" });
+    expect(result.requestedHandoff).toEqual({
+      targetAgentId: "nova",
+      reason: "needs re-planning",
+    });
   });
 
   it("rejects an invalid status value", () => {
-    expect(() => parseAgentExecutionResult(buildResult({ status: "done" }))).toThrow();
+    expect(() =>
+      parseAgentExecutionResult(buildResult({ status: "done" })),
+    ).toThrow();
   });
 
   it("rejects a memory candidate with confidence out of range", () => {
@@ -49,7 +64,12 @@ describe("parseAgentExecutionResult", () => {
       parseAgentExecutionResult(
         buildResult({
           memoryCandidates: [
-            { category: "episodic", content: {}, provenance: "x", confidence: 1.5 },
+            {
+              category: "episodic",
+              content: {},
+              provenance: "x",
+              confidence: 1.5,
+            },
           ],
         }),
       ),
@@ -60,7 +80,9 @@ describe("parseAgentExecutionResult", () => {
     expect(() =>
       parseAgentExecutionResult(
         buildResult({
-          memoryCandidates: [{ category: "working", content: {}, confidence: null }],
+          memoryCandidates: [
+            { category: "working", content: {}, confidence: null },
+          ],
         }),
       ),
     ).toThrow();

@@ -58,7 +58,9 @@ describe("terminal statuses", () => {
 
   it("isTerminalWorkflowStatus agrees with the terminal set for every status", () => {
     for (const status of ALL_STATUSES) {
-      expect(isTerminalWorkflowStatus(status)).toBe(TERMINAL_WORKFLOW_STATUSES.includes(status));
+      expect(isTerminalWorkflowStatus(status)).toBe(
+        TERMINAL_WORKFLOW_STATUSES.includes(status),
+      );
     }
   });
 });
@@ -67,7 +69,9 @@ describe("non-terminal statuses", () => {
   it("every non-terminal status has at least one valid outgoing transition", () => {
     for (const status of ALL_STATUSES) {
       if (isTerminalWorkflowStatus(status)) continue;
-      const hasAny = ALL_STATUSES.some((candidate) => isValidWorkflowTransition(status, candidate));
+      const hasAny = ALL_STATUSES.some((candidate) =>
+        isValidWorkflowTransition(status, candidate),
+      );
       expect(hasAny).toBe(true);
     }
   });
@@ -108,7 +112,9 @@ describe("isValidWorkflowTransition / assertValidWorkflowTransition", () => {
 
   it.each(invalidCases)("rejects %s -> %s", (from, to) => {
     expect(isValidWorkflowTransition(from, to)).toBe(false);
-    expect(() => assertValidWorkflowTransition(from, to)).toThrow(InvalidWorkflowTransitionError);
+    expect(() => assertValidWorkflowTransition(from, to)).toThrow(
+      InvalidWorkflowTransitionError,
+    );
   });
 
   it("the thrown error records the attempted transition", () => {

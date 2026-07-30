@@ -32,6 +32,8 @@ export class PgFeatureFlagService implements FeatureFlagService {
       `select enabled from tenant_feature_flags where tenant_id is null and key = $1`,
       [key],
     );
-    return platformRow.rows.length > 0 ? Boolean(platformRow.rows[0]!.enabled) : false;
+    return platformRow.rows.length > 0
+      ? Boolean(platformRow.rows[0]!.enabled)
+      : false;
   }
 }

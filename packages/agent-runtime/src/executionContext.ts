@@ -60,6 +60,8 @@ export type AgentExecutionContext = z.infer<typeof AgentExecutionContextSchema>;
  * throws (via Zod) on a malformed context rather than letting a caller pass
  * an ad hoc object into agent code.
  */
-export function parseAgentExecutionContext(payload: unknown): AgentExecutionContext {
+export function parseAgentExecutionContext(
+  payload: unknown,
+): AgentExecutionContext {
   return AgentExecutionContextSchema.parse(payload);
 }

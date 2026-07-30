@@ -10,7 +10,14 @@ const AUTH_SHIM_SQL = readFileSync(
   "utf8",
 );
 
-const MIGRATIONS_DIR = path.join(here, "..", "..", "..", "supabase", "migrations");
+const MIGRATIONS_DIR = path.join(
+  here,
+  "..",
+  "..",
+  "..",
+  "supabase",
+  "migrations",
+);
 
 /**
  * Loads every migration in `supabase/migrations` in filename order (the same
@@ -71,9 +78,10 @@ export async function asUser<T>(
 ): Promise<T> {
   const client = await pool.connect();
   try {
-    await client.query("select set_config('request.jwt.claim.sub', $1, false)", [
-      userId ?? "",
-    ]);
+    await client.query(
+      "select set_config('request.jwt.claim.sub', $1, false)",
+      [userId ?? ""],
+    );
     return await fn(client);
   } finally {
     client.release();

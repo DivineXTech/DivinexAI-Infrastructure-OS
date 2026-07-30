@@ -7,7 +7,7 @@ end of §10). Phase 0 and Phase 1 (three increments) are complete — see
 conflicting brief was reconciled against this plan, and §9 below for the
 phase sequence now in effect. Sections 3–8 (database strategy, provider
 abstraction, ADK boundary, memory architecture, workflow architecture,
-vertical OS contract) remain accurate *designs* for phases not yet
+vertical OS contract) remain accurate _designs_ for phases not yet
 built — read them as the plan for Phase 3 onward, not as already-implemented.
 
 ## 1. Recommended stack
@@ -20,7 +20,7 @@ itself leaves several strong hints rather than an explicit choice:
   `Supabase` in the initial tool-adapter candidate list (§IX) both point at
   **Postgres, most plausibly via Supabase** (managed Postgres + auth + RLS +
   storage in one place, common across small DivineXTech-style teams).
-- The workflow domain model (§V) already assumes durable *tables*
+- The workflow domain model (§V) already assumes durable _tables_
   (`workflow_step_runs`, `workflow_events`, `workflow_failures`,
   `workflow_compensations`) recording every state transition — this reads as
   a **Postgres-native durable execution model** (the database is the source
@@ -109,7 +109,7 @@ maps cleanly to the modules above. Two structural rules apply from the first
 migration:
 
 1. Every tenant-owned table gets a `tenant_id uuid not null references
-   tenants(id)`, and RLS is enabled with a policy that reads the tenant from
+tenants(id)`, and RLS is enabled with a policy that reads the tenant from
    the authenticated session — never from a client-supplied header or body
    field (brief rule #8).
 2. Migrations are additive and reversible: each migration file ships with
@@ -121,7 +121,7 @@ Given the volume of tables in §V (~60 across seven groups), Phase 1 will ship
 only the **core tenancy** group plus the minimal `agent_definitions` /
 `tool_definitions` / `workflow_definitions` tables needed to prove the
 pattern end-to-end. The remaining tables land with the phase that needs them
-(Phase 3 for memory_*, Phase 4 for tool_*, etc.) rather than all at once —
+(Phase 3 for memory__, Phase 4 for tool__, etc.) rather than all at once —
 shipping ~60 empty tables in Phase 1 would be schema speculation, which cuts
 against "smallest coherent increment" (§XXII.6).
 
@@ -135,7 +135,7 @@ Core interfaces (name and folder placement final in `packages/agent-runtime/`):
   business code never touches a `ModelProvider` directly.
 - `AgentExecutor` / `AgentPlanner` — run a single agent definition to
   completion, including retries/timeouts from its versioned policy.
-- `AgentToolResolver` / `AgentMemoryResolver` — resolve *only* the tools and
+- `AgentToolResolver` / `AgentMemoryResolver` — resolve _only_ the tools and
   memory scopes an agent's definition and tenant policy allow — this is
   where prompt-injection defenses live (retrieved content can never grant
   tool access, per §XV).
@@ -187,7 +187,7 @@ Three layers, matching §VII–VIII:
    (`memory_retrieval_logs`) sufficient to cite a source.
 3. **Intelligence** — a separate scheduled layer (§VIII) that computes
    deterministic metrics (revenue movement, churn indicators) directly from
-   operational/financial memory, and uses AI only to *explain* those already-
+   operational/financial memory, and uses AI only to _explain_ those already-
    computed numbers — never to invent them. Every recommendation it emits
    carries the evidence/confidence/citation fields required in §VIII.
 
@@ -210,7 +210,7 @@ thing that drives it.
 
 `packages/vertical-os-sdk` defines `VerticalOSManifest` and friends (§XIII);
 each of `verticals/restaurant-os`, `verticals/book-os`,
-`verticals/mediaforge-os` is *configuration* (templates, policy packs,
+`verticals/mediaforge-os` is _configuration_ (templates, policy packs,
 metric definitions) that installs into the shared runtime — none of them may
 contain their own copy of the agent runtime, memory engine, or workflow
 engine. This is enforced at the folder-boundary level the same way provider
@@ -219,7 +219,7 @@ isolation is (§2).
 Before writing the MediaForgeOS example manifest, `DivineXTech/-MediaForgeOS`
 (same org, not yet added to this session) should be inspected — if it already
 contains a working implementation, the manifest should describe how that
-gets *wrapped*, not duplicate it from scratch.
+gets _wrapped_, not duplicate it from scratch.
 
 ## 9. Phase plan (current, per `ADR-0013`)
 
@@ -233,10 +233,13 @@ Phase 0 and Phase 1 are complete and are not restarted or renumbered:
   events, security events.** Complete, three increments
   (`PHASE_1_TENANCY.md`, `PHASE_1_AUTHZ_AUDIT_FLAGS.md`,
   `PHASE_1_AGENT_WORKFLOW_CONTRACTS.md`).
-- **Phase 2 — Agent Runtime Contracts and Registry.** Next. Reconcile
-  `AgentStatusSchema` with the agreed 8-stage agent lifecycle
-  (`ADR-0013` §5), build the agent registry, define and register all six
-  initial agents (Sara, Nova, Forge, Guardian, Reven, Pulse) — mock
+- **Phase 2 — Agent Runtime Contracts and Registry.** Platform-owned
+  `agent_definitions`/`agent_versions` (immutable once published) +
+  tenant-owned `tenant_agents` installations, each referencing an explicit
+  published version — no nullable-`tenant_id` rows anywhere
+  (`ADR-0013` addendum). Two separate lifecycles, not one: `AgentVersionStatus`
+  (platform) and `TenantAgentLifecycleStatus` (tenant); define and register
+  all six initial agents (Sara, Nova, Forge, Guardian, Reven, Pulse) — mock
   executable only, none reach `ACTIVE`. See `FILE_CHANGE_PLAN.md`.
 - **Phase 3 — Workflow Runtime and Durable Execution.** `workflow_instances`/
   `workflow_step_runs`/`workflow_events` persistence, the state-machine
@@ -272,9 +275,12 @@ how. Current open items, carried forward rather than newly discovered:
    anything that depends on real PostgREST/GoTrue runtime behavior; does not
    block further local-Postgres-testable contract/schema work (Phase 2's
    registry and migrations can proceed the same way Phase 1 did).
-2. **`AgentStatusSchema` reconciliation** — `packages/agent-runtime`'s
-   current status enum predates the agreed 8-stage agent lifecycle
-   (`ADR-0013` §5) and must be updated before Phase 2's registry references
-   agent status, to avoid two incompatible vocabularies coexisting.
+2. **~~`AgentStatusSchema` reconciliation~~ — resolved.** Replaced by two
+   separate lifecycles (`AgentVersionStatus` platform-side,
+   `TenantAgentLifecycleStatus` tenant-side); `AgentManifest.status` removed
+   entirely. See `ADR-0013`'s addendum and `FILE_CHANGE_PLAN.md`.
+3. **Platform-wide vs. per-tenant agents — resolved.** Platform-defined,
+   tenant-installed (`ADR-0013` addendum); this was the open question
+   `FILE_CHANGE_PLAN.md`'s first draft surfaced.
 
 No other blocker is currently open.

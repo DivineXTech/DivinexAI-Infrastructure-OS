@@ -5,13 +5,16 @@ import { seedCoreFixtures, type CoreFixtures } from "./seedFixtures.js";
 import { recordAuditEvent, recordSecurityEvent } from "../src/events.js";
 
 const TEST_DATABASE_URL =
-  process.env.TEST_DATABASE_URL ?? "postgres://postgres:postgres@127.0.0.1:5432/agentflow_test";
+  process.env.TEST_DATABASE_URL ??
+  "postgres://postgres:postgres@127.0.0.1:5432/agentflow_test";
 const TEST_DATABASE_URL_AUTHENTICATED =
   process.env.TEST_DATABASE_URL_AUTHENTICATED ??
   "postgres://authenticated:authenticated@127.0.0.1:5432/agentflow_test";
 
 const ownerPool = new Pool({ connectionString: TEST_DATABASE_URL });
-const authPool = new Pool({ connectionString: TEST_DATABASE_URL_AUTHENTICATED });
+const authPool = new Pool({
+  connectionString: TEST_DATABASE_URL_AUTHENTICATED,
+});
 
 let fixtures: CoreFixtures;
 
@@ -88,29 +91,36 @@ describe("audit_events / security_events", () => {
 
   it("a member WITH tenant.view_audit_log can read their tenant's audit events", async () => {
     const rows = await asUser(authPool, fixtures.userAOwner, async (client) => {
-      const res = await client.query("select tenant_id from audit_events where tenant_id = $1", [
-        fixtures.tenantA,
-      ]);
+      const res = await client.query(
+        "select tenant_id from audit_events where tenant_id = $1",
+        [fixtures.tenantA],
+      );
       return res.rows;
     });
     expect(rows).toHaveLength(1);
   });
 
   it("a member WITHOUT tenant.view_audit_log cannot read the tenant's audit events", async () => {
-    const rows = await asUser(authPool, fixtures.userAMember, async (client) => {
-      const res = await client.query("select tenant_id from audit_events where tenant_id = $1", [
-        fixtures.tenantA,
-      ]);
-      return res.rows;
-    });
+    const rows = await asUser(
+      authPool,
+      fixtures.userAMember,
+      async (client) => {
+        const res = await client.query(
+          "select tenant_id from audit_events where tenant_id = $1",
+          [fixtures.tenantA],
+        );
+        return res.rows;
+      },
+    );
     expect(rows).toHaveLength(0);
   });
 
   it("a member of a different tenant cannot read tenant A's audit events even with the same permission elsewhere", async () => {
     const rows = await asUser(authPool, fixtures.userB, async (client) => {
-      const res = await client.query("select tenant_id from audit_events where tenant_id = $1", [
-        fixtures.tenantA,
-      ]);
+      const res = await client.query(
+        "select tenant_id from audit_events where tenant_id = $1",
+        [fixtures.tenantA],
+      );
       return res.rows;
     });
     expect(rows).toHaveLength(0);

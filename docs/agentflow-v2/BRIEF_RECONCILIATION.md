@@ -26,21 +26,21 @@ exist.
 needed since the package decision itself didn't change — only how newer
 capability names map onto it. Canonical mapping:
 
-| Newer brief's capability area | Lives in |
-|---|---|
-| Contracts (agent manifest, execution context/result) | `agent-runtime` |
-| Agents (registry, manifests) | `agent-runtime` |
-| Model gateway (provider adapters) | `agent-runtime` |
-| Orchestration | `workflow-engine` |
-| Workflows (registry, state machine, execution ledger) | `workflow-engine` |
-| Tool gateway | `tool-registry` |
-| Memory (working/episodic/semantic) | `memory-engine` |
-| Policies (deterministic evaluation) | `governance` |
-| Approvals | `governance` |
-| Security controls | `governance`, with shared security utilities where a clear cross-cutting need exists |
-| Evaluations | `observability` |
-| Observability (traces, cost, usage) | `observability` |
-| Database | schema lives in `supabase/migrations/`; each package owns the query code for its own tables rather than a monolithic `packages/database` |
+| Newer brief's capability area                         | Lives in                                                                                                                                 |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Contracts (agent manifest, execution context/result)  | `agent-runtime`                                                                                                                          |
+| Agents (registry, manifests)                          | `agent-runtime`                                                                                                                          |
+| Model gateway (provider adapters)                     | `agent-runtime`                                                                                                                          |
+| Orchestration                                         | `workflow-engine`                                                                                                                        |
+| Workflows (registry, state machine, execution ledger) | `workflow-engine`                                                                                                                        |
+| Tool gateway                                          | `tool-registry`                                                                                                                          |
+| Memory (working/episodic/semantic)                    | `memory-engine`                                                                                                                          |
+| Policies (deterministic evaluation)                   | `governance`                                                                                                                             |
+| Approvals                                             | `governance`                                                                                                                             |
+| Security controls                                     | `governance`, with shared security utilities where a clear cross-cutting need exists                                                     |
+| Evaluations                                           | `observability`                                                                                                                          |
+| Observability (traces, cost, usage)                   | `observability`                                                                                                                          |
+| Database                                              | schema lives in `supabase/migrations/`; each package owns the query code for its own tables rather than a monolithic `packages/database` |
 
 `packages/shared` is **not** being turned into a dumping ground for new
 work: existing code there (tenancy types, Supabase clients, tenant

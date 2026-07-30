@@ -12,7 +12,8 @@ import { PgTenantAccessEvaluator } from "../src/policy.js";
  */
 
 const TEST_DATABASE_URL =
-  process.env.TEST_DATABASE_URL ?? "postgres://postgres:postgres@127.0.0.1:5432/agentflow_test";
+  process.env.TEST_DATABASE_URL ??
+  "postgres://postgres:postgres@127.0.0.1:5432/agentflow_test";
 
 const pool = new Pool({ connectionString: TEST_DATABASE_URL });
 const evaluator = new PgTenantAccessEvaluator(pool);

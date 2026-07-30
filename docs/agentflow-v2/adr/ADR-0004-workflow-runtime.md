@@ -50,8 +50,8 @@ or Inngest) fronting the same tables — only the execution driver changes.
 
 ## Related
 
-- `ADR-0011` — this ADR decides the execution *model* (Postgres tables as
-  source of truth, worker polls and claims steps); ADR-0011 decides *where
-  the worker process physically runs* (VPS, Cloud Run, Railway, Render,
+- `ADR-0011` — this ADR decides the execution _model_ (Postgres tables as
+  source of truth, worker polls and claims steps); ADR-0011 decides _where
+  the worker process physically runs_ (VPS, Cloud Run, Railway, Render,
   Fly.io, or a managed workflow engine instead of this model entirely). Both
   must be settled before Phase 5.

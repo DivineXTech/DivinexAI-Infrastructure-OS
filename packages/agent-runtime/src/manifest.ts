@@ -1,15 +1,5 @@
 import { z } from "zod";
 
-/**
- * An agent's lifecycle status. Only "active" agents may be assigned to a
- * workflow step — see the evaluation-gating requirement in the AgentFlow Pro
- * brief ("agents must not be marked active until they pass their required
- * evaluation thresholds"), enforced by the (future) agent registry, not by
- * this schema itself.
- */
-export const AgentStatusSchema = z.enum(["draft", "evaluating", "active", "deprecated", "disabled"]);
-export type AgentStatus = z.infer<typeof AgentStatusSchema>;
-
 export const MemoryPolicySchema = z.object({
   workingMemory: z.boolean(),
   episodicMemory: z.boolean(),
@@ -40,12 +30,25 @@ export type ExecutionPolicy = z.infer<typeof ExecutionPolicySchema>;
  * Everything about an AgentManifest except its input/output schemas, which
  * are themselves Zod schemas (code, not data) — see `validateAgentManifest`
  * for why they're checked separately rather than folded into this object.
+ *
+ * Deliberately has no `status`/lifecycle field: a manifest is authored
+ * *content* (what an agent does, what it may not do). Publication state
+ * belongs to the `agent_versions` database row that wraps this content when
+ * it's registered in the platform catalog (`AgentVersionStatus`,
+ * `agentVersionLifecycle.ts`), and a tenant's own runtime state belongs to
+ * its `tenant_agents` installation row (`TenantAgentLifecycleStatus`,
+ * `tenantAgentLifecycle.ts`) — carrying a status on this object would create
+ * a third, driftable source of truth for the same concept. See `ADR-0013`'s
+ * addendum.
  */
 export const AgentManifestMetadataSchema = z.object({
   id: z.string().min(1),
   version: z
     .string()
-    .regex(/^\d+\.\d+\.\d+$/, "version must be semver in the form major.minor.patch"),
+    .regex(
+      /^\d+\.\d+\.\d+$/,
+      "version must be semver in the form major.minor.patch",
+    ),
   name: z.string().min(1),
   displayName: z.string().min(1),
   role: z.string().min(1),
@@ -61,7 +64,6 @@ export const AgentManifestMetadataSchema = z.object({
   handoffTargets: z.array(z.string().min(1)),
   escalationTarget: z.string().min(1).nullable(),
   successMetrics: z.array(z.string().min(1)),
-  status: AgentStatusSchema,
 });
 export type AgentManifestMetadata = z.infer<typeof AgentManifestMetadataSchema>;
 
@@ -74,8 +76,10 @@ export type AgentManifestMetadata = z.infer<typeof AgentManifestMetadataSchema>;
  * cross-process/storage use, is a concern for the (future) agent registry,
  * not this contract.
  */
-export interface AgentManifest<TInput = unknown, TOutput = unknown>
-  extends AgentManifestMetadata {
+export interface AgentManifest<
+  TInput = unknown,
+  TOutput = unknown,
+> extends AgentManifestMetadata {
   inputSchema: z.ZodType<TInput>;
   outputSchema: z.ZodType<TOutput>;
 }

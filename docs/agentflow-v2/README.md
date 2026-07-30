@@ -3,9 +3,10 @@
 This directory holds the audit, planning, and phase deliverables for
 upgrading `divinexai-infrastructure-os` into AgentFlow Pro v2.
 
-**Start here for current state:** `REPOSITORY_ASSESSMENT.md` (current,
-supersedes the Phase 0 snapshot below) and `ADR-0013` (the settled record of
-tenancy, packages, applications, phase sequence, and agent scope).
+**Start here for current state:** `REPOSITORY_ASSESSMENT.md` and `ADR-0013`
+(the settled record of tenancy, packages, applications, phase sequence, and
+agent scope, including its addendum on the platform-definition/tenant-
+installation data model).
 
 1. **[REPOSITORY_AUDIT.md](./REPOSITORY_AUDIT.md)** — historical Phase 0
    snapshot: an empty repository, and why that changed the shape of the
@@ -23,47 +24,47 @@ tenancy, packages, applications, phase sequence, and agent scope).
    boundary, memory engine and workflow architecture, and the current phase
    sequence (§9, updated per `ADR-0013`).
 6. **[CAPABILITY_PACKAGE_MAPPING.md](./CAPABILITY_PACKAGE_MAPPING.md)** —
-   canonical table mapping every capability area (contracts, agents,
-   model-gateway, orchestration, workflows, tool-gateway, memory, policies,
-   approvals, security, evaluations, observability, database) onto the
-   eight approved packages. No new top-level packages.
-7. **[FILE_CHANGE_PLAN.md](./FILE_CHANGE_PLAN.md)** — Phase 2 proposal
-   (Agent Runtime Contracts and Registry): exact files, migration, and open
-   question (platform-wide vs per-tenant agents), not yet implemented.
+   canonical table mapping every capability area onto the eight approved
+   packages. No new top-level packages.
+7. **[FILE_CHANGE_PLAN.md](./FILE_CHANGE_PLAN.md)** — the Phase 2 design
+   (platform-definition/tenant-installation model: revised table
+   definitions, registry interfaces, RLS outline, test cases), implemented
+   in `PHASE_2_AGENT_RUNTIME.md`.
 8. **[RISK_REGISTER.md](./RISK_REGISTER.md)** — predictable risks for a build
    of this shape and their mitigations; append-only as phases land.
 9. **[HOUSE_CONVENTION_REVIEW.md](./HOUSE_CONVENTION_REVIEW.md)** — read-only
-   inspection of sibling DivineXTech repos (MediaForgeOS, afrogrow360-core)
-   for conventions adopted, rejected, or reconciled before Phase 1 code was
-   written.
+   inspection of sibling DivineXTech repos for conventions adopted,
+   rejected, or reconciled before Phase 1 code was written.
 10. **[BRIEF_RECONCILIATION.md](./BRIEF_RECONCILIATION.md)** — how a first
-    conflicting "AgentFlow Pro" brief (organizations/workspaces tenancy, a
-    13-package taxonomy) was reconciled; superseded/formalized by `ADR-0013`
-    after a second, more detailed brief covered the same ground plus
-    applications, phase sequence, and agent scope.
+    conflicting "AgentFlow Pro" brief was reconciled; superseded/formalized
+    by `ADR-0013` after a second, more detailed brief covered the same
+    ground plus applications, phase sequence, and agent scope.
 11. **[PHASE_1_TENANCY.md](./PHASE_1_TENANCY.md)**,
     **[PHASE_1_AUTHZ_AUDIT_FLAGS.md](./PHASE_1_AUTHZ_AUDIT_FLAGS.md)**,
     **[PHASE_1_AGENT_WORKFLOW_CONTRACTS.md](./PHASE_1_AGENT_WORKFLOW_CONTRACTS.md)**
     — Phase 1's three increments, each with real, executed test results.
-12. **[PHASE_1_SUPABASE_VALIDATION.md](./PHASE_1_SUPABASE_VALIDATION.md)** —
-    the live-Supabase validation runbook/gate. **Not yet executed** — no live
-    Supabase project in this environment. Blocks runtime-coupled work, not
-    further local-Postgres-testable contract/schema work.
-13. **[adr/](./adr/)** — architecture decision records, `ADR-0001` through
-    `ADR-0013`. `ADR-0013` is the formal record of the second brief
-    reconciliation (tenancy, packages, applications, phase sequence, agent
-    scope); `ADR-0001` carries two addenda (house-convention adoption, and
-    the `apps/admin`/Next.js-deferral note).
+12. **[PHASE_2_AGENT_RUNTIME.md](./PHASE_2_AGENT_RUNTIME.md)** — Phase 2:
+    platform agent catalog, tenant agent installations, six canonical
+    manifests, provisioning service — real, executed test results (84 new
+    tests), migration + rollback validation, and two real bugs its own
+    tests caught before shipping.
+13. **[PHASE_1_SUPABASE_VALIDATION.md](./PHASE_1_SUPABASE_VALIDATION.md)** —
+    the live-Supabase validation runbook/gate. **Not yet executed** — no
+    live Supabase project in this environment. Blocks runtime-coupled work
+    (Phase 3's actual execution engine), not further local-Postgres-testable
+    contract/schema work.
+14. **[adr/](./adr/)** — architecture decision records, `ADR-0001` through
+    `ADR-0013`. `ADR-0013` (with its platform-definition/tenant-installation
+    addendum) is the formal record of the second brief reconciliation;
+    `ADR-0001` carries two addenda (house-convention adoption, and the
+    `apps/admin`/Next.js-deferral note).
 
 ## Status
 
-Phase 0 complete. Phase 1 complete, three increments
-(`PHASE_1_TENANCY.md`, `PHASE_1_AUTHZ_AUDIT_FLAGS.md`,
-`PHASE_1_AGENT_WORKFLOW_CONTRACTS.md`). A second brief proposing a
-conflicting architecture was reconciled in full via `ADR-0013` — see that
-ADR for the five settled points (tenancy, packages, applications, phase
-sequence, agent scope) and `FILE_CHANGE_PLAN.md` for the resulting Phase 2
-proposal, not yet implemented.
+Phase 0 complete. Phase 1 complete (three increments). Phase 2 (Agent
+Runtime Contracts and Registry) complete — platform-owned agent catalog,
+tenant-owned installations, six canonical agent manifests, provisioning
+service, all tested (136 tests total across the monorepo).
 
 Branch: `agentflow-v2/phase-1-tenancy-foundation` (renamed from
 `agentflow-v2/phase-0-audit`; the old name remains on the remote as an
@@ -71,8 +72,9 @@ obsolete, un-deleted pointer — a git-proxy policy denial blocks deleting it
 from this session, tracked as non-blocking housekeeping). Not merged to
 `main`.
 
-Before Phase 2 implementation: the live Supabase validation gate
-(`PHASE_1_SUPABASE_VALIDATION.md`) remains not executed, and
-`FILE_CHANGE_PLAN.md`'s open question (platform-wide vs per-tenant initial
-agents) needs an answer. Neither blocks further documentation or
-local-Postgres-testable contract work.
+Before Phase 3 (Workflow Runtime and Durable Execution): the live Supabase
+validation gate (`PHASE_1_SUPABASE_VALIDATION.md`) remains not executed.
+Phase 2 proceeded without it because it required no live Supabase runtime
+behavior (same reasoning as Phase 1); Phase 3's actual execution engine is
+closer to the kind of work that gate was written for and should be
+re-evaluated before it starts.

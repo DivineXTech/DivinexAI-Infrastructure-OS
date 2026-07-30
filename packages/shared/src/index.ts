@@ -14,9 +14,18 @@ export type {
   TenantAccessEvaluator,
 } from "./policy.js";
 export { PgTenantAccessEvaluator } from "./policy.js";
-export type { FeatureFlagCheckInput, FeatureFlagService } from "./featureFlags.js";
+export type {
+  FeatureFlagCheckInput,
+  FeatureFlagService,
+} from "./featureFlags.js";
 export { PgFeatureFlagService } from "./featureFlags.js";
-export type { UpdateTenantSettingsInput, TenantSettingsService } from "./tenantSettings.js";
+export type {
+  UpdateTenantSettingsInput,
+  TenantSettingsService,
+} from "./tenantSettings.js";
 export { PgTenantSettingsService } from "./tenantSettings.js";
-export type { RecordAuditEventInput, RecordSecurityEventInput } from "./events.js";
+export type {
+  RecordAuditEventInput,
+  RecordSecurityEventInput,
+} from "./events.js";
 export { recordAuditEvent, recordSecurityEvent } from "./events.js";

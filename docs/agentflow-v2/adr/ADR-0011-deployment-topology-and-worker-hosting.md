@@ -31,14 +31,14 @@ here.
 
 ## Options under consideration for the durable worker (decision deferred)
 
-| Option | Fit | Tradeoff |
-|---|---|---|
-| Always-on VPS/container (e.g. a small Docker host) | Simplest mental model; matches MediaForgeOS's own container experience (rejected for its *destination*, Kubernetes, but the container-based *packaging* is still reusable) | Someone has to operate it: patching, scaling, uptime, no managed autoscaling |
-| Google Cloud Run Jobs/Services | Serverless containers, scales to zero, good fit for a worker that's mostly idle between workflow steps; Jobs suit finite-duration runs, Services suit a long-lived poller | Adds a GCP dependency alongside Vercel/Supabase; cold starts if scaled to zero and latency-sensitive |
-| Railway | Very low ops overhead, container or Nixpacks deploys, easy Postgres/worker co-location in one dashboard | Smaller platform; less mature autoscaling/observability than the hyperscalers |
-| Render | Similar profile to Railway — managed background workers as a first-class primitive, low ops burden | Same category of tradeoffs as Railway; pricing at scale less predictable than a VPS |
-| Fly.io | Good fit for a small always-on worker close to users globally; supports persistent volumes if needed | Another platform to operate; less "one dashboard" than Railway/Render alongside Vercel |
-| Managed workflow engine (Temporal Cloud, Inngest) | Offloads retry/timeout/durability semantics entirely; would let `ADR-0004`'s bespoke Postgres-native worker be replaced by a managed execution model | Real recurring cost and a genuine new dependency at the center of the platform — the exact thing `ADR-0004` deferred until proven necessary |
+| Option                                             | Fit                                                                                                                                                                        | Tradeoff                                                                                                                                    |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Always-on VPS/container (e.g. a small Docker host) | Simplest mental model; matches MediaForgeOS's own container experience (rejected for its _destination_, Kubernetes, but the container-based _packaging_ is still reusable) | Someone has to operate it: patching, scaling, uptime, no managed autoscaling                                                                |
+| Google Cloud Run Jobs/Services                     | Serverless containers, scales to zero, good fit for a worker that's mostly idle between workflow steps; Jobs suit finite-duration runs, Services suit a long-lived poller  | Adds a GCP dependency alongside Vercel/Supabase; cold starts if scaled to zero and latency-sensitive                                        |
+| Railway                                            | Very low ops overhead, container or Nixpacks deploys, easy Postgres/worker co-location in one dashboard                                                                    | Smaller platform; less mature autoscaling/observability than the hyperscalers                                                               |
+| Render                                             | Similar profile to Railway — managed background workers as a first-class primitive, low ops burden                                                                         | Same category of tradeoffs as Railway; pricing at scale less predictable than a VPS                                                         |
+| Fly.io                                             | Good fit for a small always-on worker close to users globally; supports persistent volumes if needed                                                                       | Another platform to operate; less "one dashboard" than Railway/Render alongside Vercel                                                      |
+| Managed workflow engine (Temporal Cloud, Inngest)  | Offloads retry/timeout/durability semantics entirely; would let `ADR-0004`'s bespoke Postgres-native worker be replaced by a managed execution model                       | Real recurring cost and a genuine new dependency at the center of the platform — the exact thing `ADR-0004` deferred until proven necessary |
 
 ## Consequences
 
@@ -56,6 +56,6 @@ here.
 
 ## Related
 
-- `ADR-0004` — the durable execution *model* (Postgres tables as source of
-  truth, worker polls and claims steps). This ADR is about *where that
-  worker process physically runs*, a separable decision.
+- `ADR-0004` — the durable execution _model_ (Postgres tables as source of
+  truth, worker polls and claims steps). This ADR is about _where that
+  worker process physically runs_, a separable decision.

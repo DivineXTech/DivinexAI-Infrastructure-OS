@@ -34,7 +34,11 @@ export class PgTenantSettingsService implements TenantSettingsService {
     return rows[0]?.settings ?? {};
   }
 
-  async update({ tenantId, userId, patch }: UpdateTenantSettingsInput): Promise<void> {
+  async update({
+    tenantId,
+    userId,
+    patch,
+  }: UpdateTenantSettingsInput): Promise<void> {
     const decision = await this.access.checkPermission({
       tenantId,
       userId,

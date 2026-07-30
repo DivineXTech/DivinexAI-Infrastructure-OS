@@ -42,7 +42,13 @@ export function isTerminalWorkflowStatus(status: WorkflowStatus): boolean {
 const ALLOWED_TRANSITIONS: Record<WorkflowStatus, readonly WorkflowStatus[]> = {
   DRAFT: ["PLANNING", "CANCELLED"],
   PLANNING: ["WAITING_FOR_APPROVAL", "QUEUED", "FAILED", "CANCELLED"],
-  WAITING_FOR_APPROVAL: ["QUEUED", "RUNNING", "REJECTED", "EXPIRED", "CANCELLED"],
+  WAITING_FOR_APPROVAL: [
+    "QUEUED",
+    "RUNNING",
+    "REJECTED",
+    "EXPIRED",
+    "CANCELLED",
+  ],
   QUEUED: ["RUNNING", "CANCELLED"],
   RUNNING: [
     "RETRYING",
@@ -67,7 +73,10 @@ const ALLOWED_TRANSITIONS: Record<WorkflowStatus, readonly WorkflowStatus[]> = {
   EXPIRED: [],
 };
 
-export function isValidWorkflowTransition(from: WorkflowStatus, to: WorkflowStatus): boolean {
+export function isValidWorkflowTransition(
+  from: WorkflowStatus,
+  to: WorkflowStatus,
+): boolean {
   return ALLOWED_TRANSITIONS[from].includes(to);
 }
 
@@ -82,7 +91,10 @@ export class InvalidWorkflowTransitionError extends Error {
 }
 
 /** Throws `InvalidWorkflowTransitionError` rather than returning a boolean, for call sites that should abort rather than branch on validity. */
-export function assertValidWorkflowTransition(from: WorkflowStatus, to: WorkflowStatus): void {
+export function assertValidWorkflowTransition(
+  from: WorkflowStatus,
+  to: WorkflowStatus,
+): void {
   if (!isValidWorkflowTransition(from, to)) {
     throw new InvalidWorkflowTransitionError(from, to);
   }

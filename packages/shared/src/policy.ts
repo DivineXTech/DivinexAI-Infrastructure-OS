@@ -6,7 +6,8 @@ import type { Queryable } from "./db.js";
  * decisions; use AI for interpretation and generation, not access control),
  * every evaluator in this file is plain SQL logic with no AI involvement.
  */
-export type PolicyDecision = { allowed: true } | { allowed: false; reason: string };
+export type PolicyDecision =
+  { allowed: true } | { allowed: false; reason: string };
 
 export interface MembershipCheckInput {
   tenantId: string;
@@ -41,7 +42,10 @@ export interface TenantAccessEvaluator {
 export class PgTenantAccessEvaluator implements TenantAccessEvaluator {
   constructor(private readonly db: Queryable) {}
 
-  async checkMembership({ tenantId, userId }: MembershipCheckInput): Promise<PolicyDecision> {
+  async checkMembership({
+    tenantId,
+    userId,
+  }: MembershipCheckInput): Promise<PolicyDecision> {
     const { rows } = await this.db.query(
       `select 1
        from tenant_memberships

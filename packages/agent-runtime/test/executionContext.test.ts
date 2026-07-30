@@ -36,7 +36,9 @@ describe("parseAgentExecutionContext", () => {
   });
 
   it("rejects a non-uuid tenantId", () => {
-    expect(() => parseAgentExecutionContext(buildContext({ tenantId: "not-a-uuid" }))).toThrow();
+    expect(() =>
+      parseAgentExecutionContext(buildContext({ tenantId: "not-a-uuid" })),
+    ).toThrow();
   });
 
   it("rejects a missing traceId", () => {

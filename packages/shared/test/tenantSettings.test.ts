@@ -7,16 +7,22 @@ import { PgTenantSettingsService } from "../src/tenantSettings.js";
 import { TenantAuthorizationError } from "../src/tenant.js";
 
 const TEST_DATABASE_URL =
-  process.env.TEST_DATABASE_URL ?? "postgres://postgres:postgres@127.0.0.1:5432/agentflow_test";
+  process.env.TEST_DATABASE_URL ??
+  "postgres://postgres:postgres@127.0.0.1:5432/agentflow_test";
 const TEST_DATABASE_URL_AUTHENTICATED =
   process.env.TEST_DATABASE_URL_AUTHENTICATED ??
   "postgres://authenticated:authenticated@127.0.0.1:5432/agentflow_test";
 
 const ownerPool = new Pool({ connectionString: TEST_DATABASE_URL });
-const authPool = new Pool({ connectionString: TEST_DATABASE_URL_AUTHENTICATED });
+const authPool = new Pool({
+  connectionString: TEST_DATABASE_URL_AUTHENTICATED,
+});
 
 let fixtures: CoreFixtures;
-const service = new PgTenantSettingsService(ownerPool, new PgTenantAccessEvaluator(ownerPool));
+const service = new PgTenantSettingsService(
+  ownerPool,
+  new PgTenantAccessEvaluator(ownerPool),
+);
 
 beforeAll(async () => {
   await resetAndMigrate(ownerPool);
@@ -70,14 +76,18 @@ describe("PgTenantSettingsService", () => {
       userId: fixtures.userAOwner,
       patch: { locale: "en-US" },
     });
-    expect(await service.get(fixtures.tenantA)).toEqual({ theme: "dark", locale: "en-US" });
+    expect(await service.get(fixtures.tenantA)).toEqual({
+      theme: "dark",
+      locale: "en-US",
+    });
   });
 
   it("a permitted update via the service also satisfies RLS when read back through the restricted role", async () => {
     const rows = await asUser(authPool, fixtures.userAOwner, async (client) => {
-      const res = await client.query("select settings from tenant_settings where tenant_id = $1", [
-        fixtures.tenantA,
-      ]);
+      const res = await client.query(
+        "select settings from tenant_settings where tenant_id = $1",
+        [fixtures.tenantA],
+      );
       return res.rows;
     });
     expect(rows).toHaveLength(1);

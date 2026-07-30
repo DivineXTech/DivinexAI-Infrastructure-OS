@@ -14,13 +14,16 @@ import { seedCoreFixtures } from "./seedFixtures.js";
  */
 
 const TEST_DATABASE_URL =
-  process.env.TEST_DATABASE_URL ?? "postgres://postgres:postgres@127.0.0.1:5432/agentflow_test";
+  process.env.TEST_DATABASE_URL ??
+  "postgres://postgres:postgres@127.0.0.1:5432/agentflow_test";
 const TEST_DATABASE_URL_AUTHENTICATED =
   process.env.TEST_DATABASE_URL_AUTHENTICATED ??
   "postgres://authenticated:authenticated@127.0.0.1:5432/agentflow_test";
 
 const ownerPool = new Pool({ connectionString: TEST_DATABASE_URL });
-const authPool = new Pool({ connectionString: TEST_DATABASE_URL_AUTHENTICATED });
+const authPool = new Pool({
+  connectionString: TEST_DATABASE_URL_AUTHENTICATED,
+});
 
 let tenantA: string;
 let tenantB: string;
@@ -30,11 +33,17 @@ let userB: string; // member of tenant B only
 
 beforeAll(async () => {
   await resetAndMigrate(ownerPool);
-  ({ tenantA, tenantB, userAOwner, userAMember, userB } = await seedCoreFixtures(ownerPool));
+  ({ tenantA, tenantB, userAOwner, userAMember, userB } =
+    await seedCoreFixtures(ownerPool));
 
   await ownerPool.query(
     "insert into tenant_settings (tenant_id, settings) values ($1, $2::jsonb), ($3, $4::jsonb)",
-    [tenantA, JSON.stringify({ theme: "a" }), tenantB, JSON.stringify({ theme: "b" })],
+    [
+      tenantA,
+      JSON.stringify({ theme: "a" }),
+      tenantB,
+      JSON.stringify({ theme: "b" }),
+    ],
   );
   await ownerPool.query(
     "insert into tenant_feature_flags (tenant_id, key, enabled) values ($1, 'beta', true), ($2, 'beta', false)",
@@ -50,7 +59,9 @@ afterAll(async () => {
 describe("tenant isolation (RLS)", () => {
   it("an authenticated member sees only their own tenant in `tenants`", async () => {
     const rows = await asUser(authPool, userAOwner, async (client) => {
-      const res = await client.query("select id, name from tenants order by name");
+      const res = await client.query(
+        "select id, name from tenants order by name",
+      );
       return res.rows;
     });
     expect(rows).toHaveLength(1);
@@ -67,7 +78,9 @@ describe("tenant isolation (RLS)", () => {
 
   it("a member cannot see another tenant's membership rows", async () => {
     const rows = await asUser(authPool, userAOwner, async (client) => {
-      const res = await client.query("select tenant_id, user_id from tenant_memberships");
+      const res = await client.query(
+        "select tenant_id, user_id from tenant_memberships",
+      );
       return res.rows;
     });
     expect(rows.every((r) => r.tenant_id === tenantA)).toBe(true);
@@ -76,7 +89,9 @@ describe("tenant isolation (RLS)", () => {
 
   it("a member sees only their own tenant's settings", async () => {
     const rows = await asUser(authPool, userAOwner, async (client) => {
-      const res = await client.query("select tenant_id, settings from tenant_settings");
+      const res = await client.query(
+        "select tenant_id, settings from tenant_settings",
+      );
       return res.rows;
     });
     expect(rows).toHaveLength(1);
@@ -87,7 +102,7 @@ describe("tenant isolation (RLS)", () => {
   it("a plain member (no tenant.manage) cannot update their own tenant's settings", async () => {
     const result = await asUser(authPool, userAMember, async (client) =>
       client.query(
-        "update tenant_settings set settings = '{\"theme\":\"hacked\"}' where tenant_id = $1",
+        'update tenant_settings set settings = \'{"theme":"hacked"}\' where tenant_id = $1',
         [tenantA],
       ),
     );
@@ -105,20 +120,20 @@ describe("tenant isolation (RLS)", () => {
 
   it("an owner (has tenant.manage) can update their own tenant's settings", async () => {
     const result = await asUser(authPool, userAOwner, async (client) =>
-      client.query("update tenant_settings set settings = $1 where tenant_id = $2", [
-        { theme: "updated-by-owner" },
-        tenantA,
-      ]),
+      client.query(
+        "update tenant_settings set settings = $1 where tenant_id = $2",
+        [{ theme: "updated-by-owner" }, tenantA],
+      ),
     );
     expect(result.rowCount).toBe(1);
   });
 
   it("an owner of tenant A cannot update tenant B's settings even with the right permission shape", async () => {
     const result = await asUser(authPool, userAOwner, async (client) =>
-      client.query("update tenant_settings set settings = $1 where tenant_id = $2", [
-        { theme: "cross-tenant-attack" },
-        tenantB,
-      ]),
+      client.query(
+        "update tenant_settings set settings = $1 where tenant_id = $2",
+        [{ theme: "cross-tenant-attack" }, tenantB],
+      ),
     );
     expect(result.rowCount).toBe(0);
 

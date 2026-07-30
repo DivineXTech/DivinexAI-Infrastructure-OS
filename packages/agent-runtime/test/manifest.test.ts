@@ -11,7 +11,12 @@ function buildManifest(overrides: Partial<AgentManifest> = {}): AgentManifest {
     role: "Intelligence Director",
     mission: "Interpret objectives and synthesize final outputs.",
     responsibilities: ["Interpret objectives", "Select workflows and agents"],
-    prohibitedActions: ["deploy_code", "change_billing", "transfer_money", "alter_security_policy"],
+    prohibitedActions: [
+      "deploy_code",
+      "change_billing",
+      "transfer_money",
+      "alter_security_policy",
+    ],
     capabilities: ["synthesis", "planning"],
     toolIds: [],
     knowledgeSourceIds: [],
@@ -34,7 +39,6 @@ function buildManifest(overrides: Partial<AgentManifest> = {}): AgentManifest {
     handoffTargets: ["nova"],
     escalationTarget: null,
     successMetrics: ["task_completion_rate"],
-    status: "draft",
     inputSchema: z.object({ objective: z.string() }),
     outputSchema: z.object({ summary: z.string() }),
     ...overrides,
@@ -57,18 +61,28 @@ describe("validateAgentManifest", () => {
     expect(() => validateAgentManifest(manifest)).toThrow();
   });
 
-  it("rejects an invalid status value", () => {
-    const manifest = buildManifest({ status: "unknown-status" as never });
+  it("rejects a manifest missing a required field (mission)", () => {
+    const manifest = buildManifest();
+    delete (manifest as unknown as Record<string, unknown>).mission;
+    expect(() => validateAgentManifest(manifest)).toThrow();
+  });
+
+  it("rejects an escalationTarget that is an empty string rather than null", () => {
+    const manifest = buildManifest({ escalationTarget: "" });
     expect(() => validateAgentManifest(manifest)).toThrow();
   });
 
   it("rejects a manifest whose inputSchema is not a Zod schema", () => {
     const manifest = buildManifest({ inputSchema: { fake: true } as never });
-    expect(() => validateAgentManifest(manifest)).toThrow(/inputSchema and outputSchema/);
+    expect(() => validateAgentManifest(manifest)).toThrow(
+      /inputSchema and outputSchema/,
+    );
   });
 
   it("rejects a manifest whose outputSchema is not a Zod schema", () => {
     const manifest = buildManifest({ outputSchema: undefined as never });
-    expect(() => validateAgentManifest(manifest)).toThrow(/inputSchema and outputSchema/);
+    expect(() => validateAgentManifest(manifest)).toThrow(
+      /inputSchema and outputSchema/,
+    );
   });
 });

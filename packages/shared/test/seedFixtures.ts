@@ -22,6 +22,7 @@ export async function seedCoreFixtures(pool: Pool): Promise<CoreFixtures> {
     "tenant.manage_roles",
     "tenant.view_audit_log",
     "tenant.view_security_log",
+    "tenant.manage_agents",
   ];
   for (const key of permKeys) {
     await pool.query(
@@ -40,9 +41,17 @@ export async function seedCoreFixtures(pool: Pool): Promise<CoreFixtures> {
     `insert into auth.users (email) values ('a-owner@example.com'), ('a-member@example.com'), ('b@example.com')
      returning id`,
   );
-  const [userAOwner, userAMember, userB] = userRows.map((r) => r.id) as [string, string, string];
+  const [userAOwner, userAMember, userB] = userRows.map((r) => r.id) as [
+    string,
+    string,
+    string,
+  ];
 
-  async function makeRole(tenantId: string, key: string, keys: string[]): Promise<string> {
+  async function makeRole(
+    tenantId: string,
+    key: string,
+    keys: string[],
+  ): Promise<string> {
     const { rows } = await pool.query<{ id: string }>(
       "insert into roles (tenant_id, key, name) values ($1, $2, $2) returning id",
       [tenantId, key],

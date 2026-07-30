@@ -109,7 +109,53 @@ yet done as of this ADR.
 - `packages/agent-runtime`'s `AgentStatusSchema` is now known-stale against
   the agreed agent lifecycle and must be updated before any registry code
   references agent status, to avoid two incompatible status vocabularies
-  existing simultaneously.
+  existing simultaneously. (Superseded by the addendum below — the single
+  status enum this bullet describes was itself replaced by two separate
+  lifecycles before implementation.)
 - No new top-level packages, tables, or applications should be created
   under a differently-named brief's vocabulary without first checking
   `CAPABILITY_PACKAGE_MAPPING.md`.
+
+## Addendum: platform-definition / tenant-installation data model (2026-07-21)
+
+§5's single 8-stage `AgentStatusSchema` and a nullable-`tenant_id` `agents`
+table (as drafted in the first version of `FILE_CHANGE_PLAN.md`) are
+withdrawn before implementation, replaced by an explicit decision:
+
+- **No nullable-`tenant_id` rows represent global/platform agents,
+  anywhere.** Platform-owned data (`agent_definitions`, `agent_versions`,
+  `agent_capability_definitions`) simply has no `tenant_id` column at all —
+  it isn't tenant-owned data with a null tenant, it's a different kind of
+  row entirely. Every tenant-owned table (`tenant_agents`,
+  `tenant_agent_capabilities`, `agent_tool_permissions`,
+  `agent_knowledge_sources`) has `tenant_id NOT NULL`, full stop — no
+  exceptions, no nullable-tenant special case.
+- Sara, Nova, Forge, Guardian, Reven, and Pulse are each defined **once**,
+  platform-owned, versioned immutably (`agent_versions`, `draft →
+validated → published → deprecated → retired`). A tenant that wants one
+  gets a **`tenant_agents` installation row** referencing one explicit,
+  published `agent_version_id` — never an implicit "latest version," never
+  a shared row multiple tenants read directly.
+- **Lifecycle is two separate enums, not one:** `AgentVersionStatus`
+  (platform, on `agent_versions`) is distinct from
+  `TenantAgentLifecycleStatus` (tenant, on `tenant_agents`:
+  `REGISTERED → MOCK_EXECUTABLE → EVALUATION_TESTED → TOOL_ENABLED →
+APPROVAL_GOVERNED → ACTIVE`, `SUSPENDED` reachable from any
+  post-`REGISTERED` state). `DEFINED` is not a tenant runtime state — it
+  described creation of the platform definition, now `draft` in the version
+  lifecycle instead. Consequently, `AgentManifest`'s `status` field
+  (`packages/agent-runtime/src/manifest.ts`) is removed entirely: a
+  manifest is authored content, and publication state belongs to the
+  `agent_versions` row wrapping that content, not to the content object
+  itself.
+- New tenant installations default to `lifecycle_status = 'REGISTERED'`,
+  `enabled = false`. No tenant agent begins `ACTIVE`.
+- Tenant provisioning is an explicit, idempotent TypeScript service
+  (`provisionTenantAgents`), not a database trigger — it creates missing
+  installations only, references explicit published versions, defaults to
+  disabled, and records an audit event per installation actually created,
+  operating through the existing `TenantAccessEvaluator`
+  (`packages/shared/src/policy.ts`).
+- Full revised table definitions, registry interfaces, RLS policy outline,
+  and test cases are in `FILE_CHANGE_PLAN.md`, which supersedes its own
+  first draft.

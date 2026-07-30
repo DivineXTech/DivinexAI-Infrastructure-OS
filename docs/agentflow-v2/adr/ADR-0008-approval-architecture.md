@@ -13,7 +13,7 @@ decisions must be deterministic rather than AI-authored (rule #14).
 - Approval policy evaluation (`policy_evaluations`) is a deterministic rules
   engine over structured inputs (tenant, department, agent, tool, action
   type, financial threshold, data classification, risk score) — not an LLM
-  call. AI may help *classify* risk (e.g., summarizing why an action looks
+  call. AI may help _classify_ risk (e.g., summarizing why an action looks
   risky) but the pass/fail gate itself is code, not a model response.
 - Tool risk classification (read-only, low-risk write, financial action,
   destructive action, permission change, external publication, irreversible
@@ -29,7 +29,7 @@ decisions must be deterministic rather than AI-authored (rule #14).
 
 ## Consequences
 
-- Tenant policy overrides can only *tighten* the safe defaults unless
+- Tenant policy overrides can only _tighten_ the safe defaults unless
   explicitly marked as an authorized loosening, auditable via
   `policy_versions`.
 - A single shared evaluator becomes a hot path that must be well-tested

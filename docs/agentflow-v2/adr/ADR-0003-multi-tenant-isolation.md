@@ -12,7 +12,7 @@ only by the client (rule #8), with "row-level security or equivalent."
 ## Decision
 
 - Every tenant-owned table includes `tenant_id uuid not null references
-  tenants(id)`.
+tenants(id)`.
 - Row-Level Security is enabled on every such table, with a single shared
   policy pattern that derives the active tenant from the authenticated
   session (via a `tenant_memberships` lookup keyed on `auth.uid()`), never

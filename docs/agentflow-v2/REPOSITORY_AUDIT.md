@@ -22,7 +22,7 @@ This changes the shape of the assignment materially: the brief is written as an
 **upgrade** of an existing production system ("preserve existing working
 functionality," "do not rewrite from scratch," "identify reusable components").
 None of those clauses have anything to bind to here — there is nothing yet to
-preserve, rewrite, or reuse *within this repository*. The project is greenfield.
+preserve, rewrite, or reuse _within this repository_. The project is greenfield.
 That's not a blocker to starting; it does mean several foundational decisions
 (stack, hosting, data store) need an explicit answer before Phase 1 can begin,
 rather than being inferable from precedent. These are called out as open
@@ -30,33 +30,33 @@ questions in `IMPLEMENTATION_PLAN.md` and were raised to the user directly.
 
 ## Checklist against the requested audit categories (§IV)
 
-| Category | Status |
-|---|---|
-| Framework and runtime versions | Not present |
-| Package manager | Not present |
-| Frontend architecture | Not present |
-| Backend architecture | Not present |
-| Database provider | Not present |
-| Authentication system | Not present |
-| Authorization and role model | Not present |
-| Existing tenant model | Not present |
-| Existing agent implementation | Not present |
-| Existing workflow implementation | Not present |
-| Existing database migrations | Not present |
-| Existing API routes | Not present |
-| Existing edge/serverless functions | Not present |
-| Existing queues or background jobs | Not present |
-| Existing AI providers | Not present |
-| Existing logging and monitoring | Not present |
-| Existing tests | Not present |
-| Existing deployment configuration | Not present |
-| Existing environment variables | Not present |
-| Existing integrations | Not present |
-| Existing administrative views | Not present |
-| Existing executive dashboards | Not present |
-| Existing Sara-related components | Not present |
-| Existing security risks | None yet — no attack surface exists |
-| Existing technical debt | None yet |
+| Category                           | Status                              |
+| ---------------------------------- | ----------------------------------- |
+| Framework and runtime versions     | Not present                         |
+| Package manager                    | Not present                         |
+| Frontend architecture              | Not present                         |
+| Backend architecture               | Not present                         |
+| Database provider                  | Not present                         |
+| Authentication system              | Not present                         |
+| Authorization and role model       | Not present                         |
+| Existing tenant model              | Not present                         |
+| Existing agent implementation      | Not present                         |
+| Existing workflow implementation   | Not present                         |
+| Existing database migrations       | Not present                         |
+| Existing API routes                | Not present                         |
+| Existing edge/serverless functions | Not present                         |
+| Existing queues or background jobs | Not present                         |
+| Existing AI providers              | Not present                         |
+| Existing logging and monitoring    | Not present                         |
+| Existing tests                     | Not present                         |
+| Existing deployment configuration  | Not present                         |
+| Existing environment variables     | Not present                         |
+| Existing integrations              | Not present                         |
+| Existing administrative views      | Not present                         |
+| Existing executive dashboards      | Not present                         |
+| Existing Sara-related components   | Not present                         |
+| Existing security risks            | None yet — no attack surface exists |
+| Existing technical debt            | None yet                            |
 
 ## Adjacent repositories (same GitHub org, not yet inspected)
 

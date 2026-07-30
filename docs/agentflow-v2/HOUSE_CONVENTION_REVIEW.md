@@ -44,26 +44,26 @@ weak, documented-standard-tier signal, not a concrete convention.
 
 ## Conventions adopted
 
-| Convention | Source | Reason |
-|---|---|---|
-| Package manager: **Bun** | MediaForgeOS | Clear, current, real production choice (`packageManager: bun@1.3.11`); no AgentFlow Pro convention existed to conflict with it |
-| Monorepo tool: **Turborepo**, `apps/*` + `packages/*` workspaces | MediaForgeOS | Same reasoning; compatible with the `packages/*`-per-module layout already proposed in `IMPLEMENTATION_PLAN.md` |
-| Validation library: **Zod** | MediaForgeOS | Matches an unresolved gap in the original plan; also the natural fit for the brief's schema-validated tool/agent inputs |
-| Env var convention: single Zod-validated `env.ts` per app/package, `.env.example` with inline comments at repo root and per app | MediaForgeOS | Concrete, well-documented pattern (`apps/backend/src/env.ts`) worth reusing verbatim |
-| Shared lint/type-check tooling as its own workspace packages (`@repo/eslint-config`, `@repo/typescript-config`) | MediaForgeOS | Directly reusable pattern for a `packages/*`-heavy monorepo |
-| CI tool: **GitHub Actions** | MediaForgeOS | Confirmed as the house CI platform (`.github/workflows/deploy.yml`), independent of what it deploys to |
+| Convention                                                                                                                      | Source       | Reason                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Package manager: **Bun**                                                                                                        | MediaForgeOS | Clear, current, real production choice (`packageManager: bun@1.3.11`); no AgentFlow Pro convention existed to conflict with it |
+| Monorepo tool: **Turborepo**, `apps/*` + `packages/*` workspaces                                                                | MediaForgeOS | Same reasoning; compatible with the `packages/*`-per-module layout already proposed in `IMPLEMENTATION_PLAN.md`                |
+| Validation library: **Zod**                                                                                                     | MediaForgeOS | Matches an unresolved gap in the original plan; also the natural fit for the brief's schema-validated tool/agent inputs        |
+| Env var convention: single Zod-validated `env.ts` per app/package, `.env.example` with inline comments at repo root and per app | MediaForgeOS | Concrete, well-documented pattern (`apps/backend/src/env.ts`) worth reusing verbatim                                           |
+| Shared lint/type-check tooling as its own workspace packages (`@repo/eslint-config`, `@repo/typescript-config`)                 | MediaForgeOS | Directly reusable pattern for a `packages/*`-heavy monorepo                                                                    |
+| CI tool: **GitHub Actions**                                                                                                     | MediaForgeOS | Confirmed as the house CI platform (`.github/workflows/deploy.yml`), independent of what it deploys to                         |
 
 ## Conventions rejected
 
-| Convention | Source | Reason for rejection |
-|---|---|---|
-| Frontend framework: Vite + React SPA | MediaForgeOS | AgentFlow Pro's own stack (ADR-0001, already approved) specifies Next.js — a tier-1 decision, which outranks a tier-2 sibling-repo convention. Reinforced, weakly, by afrogrow360-core's README stating a Next.js intent for its own product (tier-4 signal, consistent direction) |
-| Backend framework: Express | MediaForgeOS | Superseded by Next.js API routes/route handlers under the already-approved stack |
-| Auth: better-auth (self-hosted) | MediaForgeOS | AgentFlow Pro's stack already commits to Supabase Auth (ADR-0001) for its bundled RLS integration — a tier-1 decision |
-| ORM: Prisma | MediaForgeOS | AgentFlow Pro's RLS-centric tenant isolation model (ADR-0003) is built on Postgres-native RLS policies applied via SQL migrations; Prisma has no first-class RLS policy management and would fight that model. Supabase's own migration CLI (raw SQL, timestamped files) is kept instead |
-| Object storage: MinIO (self-hosted) | MediaForgeOS | Supabase Storage already covered by the approved stack; no reason to add a second storage vendor |
-| Uncommitted / dev-push-only migrations (no `prisma/migrations` history in the repo) | MediaForgeOS | Conflicts directly with the source brief's requirement for versioned, reversible migrations with documented rollback instructions per phase |
-| Deploy target: Docker images → Kubernetes/ArgoCD | MediaForgeOS | Superseded by the user's explicit current working assumption (Vercel + Supabase); see `ADR-0011` |
+| Convention                                                                          | Source       | Reason for rejection                                                                                                                                                                                                                                                                     |
+| ----------------------------------------------------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend framework: Vite + React SPA                                                | MediaForgeOS | AgentFlow Pro's own stack (ADR-0001, already approved) specifies Next.js — a tier-1 decision, which outranks a tier-2 sibling-repo convention. Reinforced, weakly, by afrogrow360-core's README stating a Next.js intent for its own product (tier-4 signal, consistent direction)       |
+| Backend framework: Express                                                          | MediaForgeOS | Superseded by Next.js API routes/route handlers under the already-approved stack                                                                                                                                                                                                         |
+| Auth: better-auth (self-hosted)                                                     | MediaForgeOS | AgentFlow Pro's stack already commits to Supabase Auth (ADR-0001) for its bundled RLS integration — a tier-1 decision                                                                                                                                                                    |
+| ORM: Prisma                                                                         | MediaForgeOS | AgentFlow Pro's RLS-centric tenant isolation model (ADR-0003) is built on Postgres-native RLS policies applied via SQL migrations; Prisma has no first-class RLS policy management and would fight that model. Supabase's own migration CLI (raw SQL, timestamped files) is kept instead |
+| Object storage: MinIO (self-hosted)                                                 | MediaForgeOS | Supabase Storage already covered by the approved stack; no reason to add a second storage vendor                                                                                                                                                                                         |
+| Uncommitted / dev-push-only migrations (no `prisma/migrations` history in the repo) | MediaForgeOS | Conflicts directly with the source brief's requirement for versioned, reversible migrations with documented rollback instructions per phase                                                                                                                                              |
+| Deploy target: Docker images → Kubernetes/ArgoCD                                    | MediaForgeOS | Superseded by the user's explicit current working assumption (Vercel + Supabase); see `ADR-0011`                                                                                                                                                                                         |
 
 ## Conflicts found
 

@@ -44,7 +44,7 @@ summarize as "worked" without the underlying evidence.
    with an invalid/expired token), query `tenants`, `tenant_memberships`,
    `tenant_settings`, `tenant_feature_flags` via the Supabase JS client or a
    direct PostgREST request. Expect zero rows for every table (RLS deny by
-   default), not a 401/403 — Supabase's anon role is allowed to *ask*, RLS
+   default), not a 401/403 — Supabase's anon role is allowed to _ask_, RLS
    just returns nothing.
 
 3. **Verify a valid tenant member can access only their tenant.**
@@ -84,14 +84,14 @@ summarize as "worked" without the underlying evidence.
 _(Empty. Fill in with command, output, and pass/fail per step above once run
 against a real Supabase project.)_
 
-| Step | Run by | Date | Result | Notes |
-|---|---|---|---|---|
-| 1. Migration via Supabase workflow | — | — | Not run | |
-| 2. Anonymous denied | — | — | Not run | |
-| 3. Member sees only own tenant | — | — | Not run | |
-| 4. Cross-tenant blocked | — | — | Not run | |
-| 5. Helpers under real JWT | — | — | Not run | |
-| 6. Service-role restricted to server | — | — | Not run | |
+| Step                                 | Run by | Date | Result  | Notes |
+| ------------------------------------ | ------ | ---- | ------- | ----- |
+| 1. Migration via Supabase workflow   | —      | —    | Not run |       |
+| 2. Anonymous denied                  | —      | —    | Not run |       |
+| 3. Member sees only own tenant       | —      | —    | Not run |       |
+| 4. Cross-tenant blocked              | —      | —    | Not run |       |
+| 5. Helpers under real JWT            | —      | —    | Not run |       |
+| 6. Service-role restricted to server | —      | —    | Not run |       |
 
 ## Sign-off
 

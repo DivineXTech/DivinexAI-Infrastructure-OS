@@ -10,6 +10,23 @@
         "typescript": "5.9.2",
       },
     },
+    "apps/worker": {
+      "name": "@repo/worker",
+      "version": "0.0.0",
+      "dependencies": {
+        "@repo/agent-runtime": "*",
+        "@repo/workflow-engine": "*",
+        "pg": "^8.13.1",
+      },
+      "devDependencies": {
+        "@repo/eslint-config": "*",
+        "@repo/typescript-config": "*",
+        "@types/node": "^22.10.5",
+        "@types/pg": "^8.11.10",
+        "eslint": "^9.39.1",
+        "typescript": "5.9.2",
+      },
+    },
     "packages/agent-runtime": {
       "name": "@repo/agent-runtime",
       "version": "0.0.0",
@@ -183,6 +200,8 @@
     "@repo/shared": ["@repo/shared@workspace:packages/shared"],
 
     "@repo/typescript-config": ["@repo/typescript-config@workspace:packages/typescript-config"],
+
+    "@repo/worker": ["@repo/worker@workspace:apps/worker"],
 
     "@repo/workflow-engine": ["@repo/workflow-engine@workspace:packages/workflow-engine"],
 

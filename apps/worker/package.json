@@ -1,0 +1,25 @@
+{
+  "name": "@repo/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@repo/agent-runtime": "*",
+    "@repo/workflow-engine": "*",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.11.10",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.2"
+  }
+}

@@ -14,6 +14,7 @@
       "name": "@repo/agent-runtime",
       "version": "0.0.0",
       "dependencies": {
+        "@repo/platform-kernel": "*",
         "@repo/shared": "*",
         "zod": "^3.24.1",
       },
@@ -39,6 +40,18 @@
         "eslint-plugin-turbo": "^2.7.1",
         "typescript": "5.9.2",
         "typescript-eslint": "^8.50.0",
+      },
+    },
+    "packages/platform-kernel": {
+      "name": "@repo/platform-kernel",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@repo/eslint-config": "*",
+        "@repo/typescript-config": "*",
+        "@types/node": "^22.10.5",
+        "eslint": "^9.39.1",
+        "typescript": "5.9.2",
+        "vitest": "^2.1.8",
       },
     },
     "packages/shared": {
@@ -159,6 +172,8 @@
     "@repo/agent-runtime": ["@repo/agent-runtime@workspace:packages/agent-runtime"],
 
     "@repo/eslint-config": ["@repo/eslint-config@workspace:packages/eslint-config"],
+
+    "@repo/platform-kernel": ["@repo/platform-kernel@workspace:packages/platform-kernel"],
 
     "@repo/shared": ["@repo/shared@workspace:packages/shared"],
 

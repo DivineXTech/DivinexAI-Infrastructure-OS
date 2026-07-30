@@ -48,6 +48,10 @@ const ALLOWED_TRANSITIONS: Record<WorkflowStatus, readonly WorkflowStatus[]> = {
     "REJECTED",
     "EXPIRED",
     "CANCELLED",
+    // Phase 4 addition: lets an approval expiration park the run instead of
+    // terminating it, per a future manifest-level policy field. Additive —
+    // every other transition in this table is unchanged.
+    "BLOCKED",
   ],
   QUEUED: ["RUNNING", "CANCELLED"],
   RUNNING: [

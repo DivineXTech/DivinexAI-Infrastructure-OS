@@ -186,6 +186,7 @@ describe("materializeSteps", () => {
             timeoutMs: 60000,
             deadLetterOnExhaustion: true,
           },
+          governedAction: null,
         },
       ]),
     ).rejects.toThrow(/capability-based assignment is not yet supported/);

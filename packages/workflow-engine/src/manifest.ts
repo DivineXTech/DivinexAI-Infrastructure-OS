@@ -35,6 +35,17 @@ export const WorkflowStepDefinitionSchema = z.object({
   dependsOn: z.array(z.string().min(1)),
   approvalRequired: z.boolean().default(false),
   retryPolicy: RetryPolicySchema,
+  /**
+   * Phase 4 addition — additive, `null` by default, so a manifest published
+   * before this field existed remains valid without re-parsing (a `1.0.0`
+   * row's raw stored JSON genuinely lacks this key; consumers must treat it
+   * as absent-safe rather than assume the Zod default retroactively
+   * backfills stored data). A plain string, not a typed import of
+   * `governance`'s closed action-catalog enum — `workflow-engine` has no
+   * dependency on `governance`; `governance` validates the string against
+   * its own catalog only when it actually receives one.
+   */
+  governedAction: z.string().min(1).nullable().default(null),
 });
 export type WorkflowStepDefinition = z.infer<
   typeof WorkflowStepDefinitionSchema

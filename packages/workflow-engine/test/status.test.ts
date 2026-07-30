@@ -94,6 +94,9 @@ describe("isValidWorkflowTransition / assertValidWorkflowTransition", () => {
     ["VALIDATING", "COMPLETED"],
     ["RUNNING", "RETRYING"],
     ["RETRYING", "RUNNING"],
+    // Phase 4 addition (governance/approvals): lets an approval expiration
+    // park the run rather than terminating it.
+    ["WAITING_FOR_APPROVAL", "BLOCKED"],
   ];
 
   it.each(validCases)("allows %s -> %s", (from, to) => {

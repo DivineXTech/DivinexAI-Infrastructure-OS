@@ -54,6 +54,7 @@ export const clientSolutionAssessmentManifest: WorkflowManifest<
       dependsOn: [],
       approvalRequired: false,
       retryPolicy: DEFAULT_RETRY_POLICY,
+      governedAction: null,
     },
     {
       stepKey: "nova_plan",
@@ -61,6 +62,7 @@ export const clientSolutionAssessmentManifest: WorkflowManifest<
       dependsOn: ["sara_interpret"],
       approvalRequired: false,
       retryPolicy: DEFAULT_RETRY_POLICY,
+      governedAction: null,
     },
     {
       stepKey: "pulse_market",
@@ -68,6 +70,7 @@ export const clientSolutionAssessmentManifest: WorkflowManifest<
       dependsOn: ["nova_plan"],
       approvalRequired: false,
       retryPolicy: DEFAULT_RETRY_POLICY,
+      governedAction: null,
     },
     {
       stepKey: "reven_pricing",
@@ -75,6 +78,7 @@ export const clientSolutionAssessmentManifest: WorkflowManifest<
       dependsOn: ["nova_plan"],
       approvalRequired: false,
       retryPolicy: DEFAULT_RETRY_POLICY,
+      governedAction: null,
     },
     {
       stepKey: "forge_technical",
@@ -82,6 +86,7 @@ export const clientSolutionAssessmentManifest: WorkflowManifest<
       dependsOn: ["nova_plan"],
       approvalRequired: false,
       retryPolicy: DEFAULT_RETRY_POLICY,
+      governedAction: null,
     },
     {
       stepKey: "guardian_review",
@@ -89,6 +94,7 @@ export const clientSolutionAssessmentManifest: WorkflowManifest<
       dependsOn: ["pulse_market", "reven_pricing", "forge_technical"],
       approvalRequired: false,
       retryPolicy: DEFAULT_RETRY_POLICY,
+      governedAction: null,
     },
     {
       stepKey: "sara_synthesize",
@@ -96,6 +102,7 @@ export const clientSolutionAssessmentManifest: WorkflowManifest<
       dependsOn: ["guardian_review"],
       approvalRequired: true,
       retryPolicy: DEFAULT_RETRY_POLICY,
+      governedAction: null,
     },
   ],
 };

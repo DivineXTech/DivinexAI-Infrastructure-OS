@@ -3,12 +3,18 @@ import type { AgentExecutionContext } from "./executionContext.js";
 import {
   AgentExecutionResultSchema,
   type AgentExecutionResult,
+  type IntendedAction,
 } from "./executionResult.js";
 
 export interface MockAgentAdapter {
   execute(
     resolved: ResolvedTenantAgent,
     context: AgentExecutionContext,
+    /** The governed action this step declares, if any (Phase 4) — when
+     * present, the mock result's `intendedAction` is populated so
+     * `governance` has something to evaluate. `null`/omitted for a step
+     * with no governance gate. */
+    governedAction?: string | null,
   ): Promise<AgentExecutionResult>;
 }
 
@@ -23,7 +29,16 @@ export class DeterministicMockAgentAdapter implements MockAgentAdapter {
   async execute(
     resolved: ResolvedTenantAgent,
     context: AgentExecutionContext,
+    governedAction?: string | null,
   ): Promise<AgentExecutionResult> {
+    const intendedAction: IntendedAction | null = governedAction
+      ? {
+          action: governedAction,
+          parameters: { objective: context.objective },
+          targetResource: null,
+        }
+      : null;
+
     const result: AgentExecutionResult = {
       status: "completed",
       summary: `Mock execution of agent "${resolved.definition.slug}" for objective: ${context.objective}`,
@@ -48,6 +63,9 @@ export class DeterministicMockAgentAdapter implements MockAgentAdapter {
         latencyMs: 0,
         toolCallCount: 0,
       },
+      intendedAction,
+      selfAssessedRiskLevel: null,
+      requestedCapabilities: [],
     };
     return AgentExecutionResultSchema.parse(result);
   }

@@ -34,6 +34,7 @@ export type {
   RequestedHandoff,
   MemoryCandidate,
   EvaluationMetadata,
+  IntendedAction,
   AgentExecutionResult,
 } from "./executionResult.js";
 export {
@@ -41,6 +42,7 @@ export {
   RequestedHandoffSchema,
   MemoryCandidateSchema,
   EvaluationMetadataSchema,
+  IntendedActionSchema,
   AgentExecutionResultSchema,
   parseAgentExecutionResult,
 } from "./executionResult.js";

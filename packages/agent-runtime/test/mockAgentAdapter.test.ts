@@ -85,4 +85,24 @@ describe("DeterministicMockAgentAdapter", () => {
     const second = await adapter.execute(resolved, context);
     expect(first.output).toEqual(second.output);
   });
+
+  it("populates intendedAction when a governedAction is declared", async () => {
+    const adapter = new DeterministicMockAgentAdapter();
+    const result = await adapter.execute(
+      resolved,
+      context,
+      "communication.send.external",
+    );
+    expect(result.intendedAction).toEqual({
+      action: "communication.send.external",
+      parameters: { objective: context.objective },
+      targetResource: null,
+    });
+  });
+
+  it("leaves intendedAction null when no governedAction is declared", async () => {
+    const adapter = new DeterministicMockAgentAdapter();
+    const result = await adapter.execute(resolved, context);
+    expect(result.intendedAction).toBeNull();
+  });
 });

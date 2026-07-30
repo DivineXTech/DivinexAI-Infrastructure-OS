@@ -28,10 +28,19 @@ left open.
 
 Package layout mirrors `workflow-engine`'s Phase 3 structure exactly (own
 `package.json`/`tsconfig.json`/`eslint.config.js`/`vitest.config.ts`,
-dependencies on `@repo/shared` and `@repo/platform-kernel`, no dependency
-on `agent-runtime` or `workflow-engine` — those call _into_ `governance`,
-not the reverse). See `PHASE_4_GOVERNANCE_APPROVALS.md` §13 for the full
-file tree.
+dependencies on `@repo/shared` and `@repo/platform-kernel`). **Correction:**
+`governance` does depend on `@repo/workflow-engine` — one-way, since
+`governance`'s orchestration calls `workflow-engine`'s approval-integration
+functions (§10) to move steps/runs through state; `workflow-engine` never
+imports `governance`. `governance` has **no** dependency on
+`@repo/agent-runtime` at all: `AgentExecutionResult`'s `intendedAction.action`
+is a plain `z.string().min(1)` at the `agent-runtime` layer (not a typed
+import of `governance`'s `GovernedActionSchema`), and `governance` validates
+it against its own action catalog only when it actually receives one as
+plain data from whatever calls `evaluatePolicy` (`apps/worker`) — the same
+"no compile-time dependency where a plain value suffices" discipline
+already used for `workflow-engine`'s `AgentResolver`. See
+`PHASE_4_GOVERNANCE_APPROVALS.md` §13 for the full file tree.
 
 ## New/revised table definitions
 

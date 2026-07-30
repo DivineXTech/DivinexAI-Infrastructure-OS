@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
   validateWorkflowManifest,
+  WorkflowManifestMetadataSchema,
   UnknownWorkflowAgentError,
   UnpublishableWorkflowAgentError,
   type WorkflowManifest,
@@ -35,6 +36,7 @@ function baseManifest(
           timeoutMs: 60000,
           deadLetterOnExhaustion: true,
         },
+        governedAction: null,
       },
     ],
     ...overrides,
@@ -86,6 +88,7 @@ describe("validateWorkflowManifest", () => {
           dependsOn: ["b"],
           approvalRequired: false,
           retryPolicy: baseManifest().steps[0]!.retryPolicy,
+          governedAction: null,
         },
         {
           stepKey: "b",
@@ -93,6 +96,7 @@ describe("validateWorkflowManifest", () => {
           dependsOn: ["a"],
           approvalRequired: false,
           retryPolicy: baseManifest().steps[0]!.retryPolicy,
+          governedAction: null,
         },
       ],
     });
@@ -131,6 +135,7 @@ describe("validateWorkflowManifest", () => {
           dependsOn: [],
           approvalRequired: false,
           retryPolicy: baseManifest().steps[0]!.retryPolicy,
+          governedAction: null,
         },
       ],
     });
@@ -138,6 +143,57 @@ describe("validateWorkflowManifest", () => {
       validateWorkflowManifest(manifest, resolver),
     ).resolves.toBeDefined();
     expect(resolverCalls).toBe(0);
+  });
+
+  it("Phase 4 compatibility: a step definition without a governedAction key at all still validates successfully", async () => {
+    const resolver = createStubAgentResolver(["sara"]);
+    // Simulates a manifest stored before this field existed — the raw JSON
+    // genuinely lacks the key (not merely set to null), the same shape
+    // client_solution_assessment v1.0.0 has on disk.
+    const manifest = baseManifest();
+    const rawStep = manifest.steps[0] as unknown as Record<string, unknown>;
+    delete rawStep.governedAction;
+
+    await expect(
+      validateWorkflowManifest(manifest, resolver),
+    ).resolves.toBeDefined();
+
+    // validateWorkflowManifest returns the original manifest reference (not
+    // a re-parsed copy), so the key is genuinely absent (`undefined`) here —
+    // exactly the gotcha documented in PHASE_4_GOVERNANCE_APPROVALS.md §12:
+    // the Zod default does not retroactively backfill already-stored data.
+    // Every real consumer must read this field as `step.governedAction ?? null`.
+    const returnedStep = manifest.steps[0] as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(returnedStep.governedAction).toBeUndefined();
+    expect(returnedStep.governedAction ?? null).toBeNull();
+  });
+
+  it("a freshly-parsed manifest (via the metadata schema directly) defaults an omitted governedAction to null", () => {
+    const manifest = baseManifest();
+    const rawStep = manifest.steps[0] as unknown as Record<string, unknown>;
+    delete rawStep.governedAction;
+
+    const parsed = WorkflowManifestMetadataSchema.parse(manifest);
+    expect(parsed.steps[0]!.governedAction).toBeNull();
+  });
+
+  it("accepts a step definition with an explicit governedAction", async () => {
+    const resolver = createStubAgentResolver(["sara"]);
+    const manifest = baseManifest({
+      steps: [
+        {
+          ...baseManifest().steps[0]!,
+          governedAction: "communication.send.external",
+        },
+      ],
+    });
+    const validated = await validateWorkflowManifest(manifest, resolver);
+    expect(validated.steps[0]!.governedAction).toBe(
+      "communication.send.external",
+    );
   });
 
   it("rejects a kind: capability step with an empty capability string", async () => {
@@ -151,6 +207,7 @@ describe("validateWorkflowManifest", () => {
           dependsOn: [],
           approvalRequired: false,
           retryPolicy: baseManifest().steps[0]!.retryPolicy,
+          governedAction: null,
         },
       ],
     };

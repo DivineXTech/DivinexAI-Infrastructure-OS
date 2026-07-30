@@ -37,6 +37,24 @@ export const EvaluationMetadataSchema = z.object({
 export type EvaluationMetadata = z.infer<typeof EvaluationMetadataSchema>;
 
 /**
+ * The action this invocation proposes to take, if any — declared by the
+ * agent, never self-authorized by it (`governance`, Phase 4, is the sole
+ * authority on whether it may proceed). `action` is a plain string here
+ * rather than a typed import of `governance`'s closed action-catalog
+ * enum — `agent-runtime` has no dependency on `governance` at all;
+ * `governance` validates the string against its own catalog only when it
+ * actually receives one, the same "no compile-time dependency where a
+ * plain value suffices" discipline already used for `workflow-engine`'s
+ * `AgentResolver` (Phase 3).
+ */
+export const IntendedActionSchema = z.object({
+  action: z.string().min(1),
+  parameters: z.record(z.string(), z.unknown()),
+  targetResource: z.string().nullable(),
+});
+export type IntendedAction = z.infer<typeof IntendedActionSchema>;
+
+/**
  * The structured result every agent invocation must return. Per the brief's
  * rule, "no agent may return an unvalidated runtime payload" — the only
  * sanctioned way to accept one is `parseAgentExecutionResult`, which throws
@@ -56,6 +74,19 @@ export const AgentExecutionResultSchema = z.object({
   riskFlags: z.array(z.string()),
   memoryCandidates: z.array(MemoryCandidateSchema),
   evaluationMetadata: EvaluationMetadataSchema,
+  /**
+   * Phase 4 additions — all additive with defaults, a backward-compatible
+   * extension of this runtime (non-versioned) contract; structured and
+   * typed rather than an unbounded metadata bag.
+   */
+  intendedAction: IntendedActionSchema.nullable().default(null),
+  /** Advisory only — never authoritative. `governance`'s own risk-classification
+   * evaluation is independently derived and can never be replaced by this. */
+  selfAssessedRiskLevel: z
+    .enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"])
+    .nullable()
+    .default(null),
+  requestedCapabilities: z.array(z.string()).default([]),
 });
 export type AgentExecutionResult = z.infer<typeof AgentExecutionResultSchema>;
 

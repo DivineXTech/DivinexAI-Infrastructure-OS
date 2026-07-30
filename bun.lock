@@ -10,6 +10,21 @@
         "typescript": "5.9.2",
       },
     },
+    "packages/agent-runtime": {
+      "name": "@repo/agent-runtime",
+      "version": "0.0.0",
+      "dependencies": {
+        "zod": "^3.24.1",
+      },
+      "devDependencies": {
+        "@repo/eslint-config": "*",
+        "@repo/typescript-config": "*",
+        "@types/node": "^22.10.5",
+        "eslint": "^9.39.1",
+        "typescript": "5.9.2",
+        "vitest": "^2.1.8",
+      },
+    },
     "packages/eslint-config": {
       "name": "@repo/eslint-config",
       "version": "0.0.0",
@@ -44,6 +59,21 @@
     "packages/typescript-config": {
       "name": "@repo/typescript-config",
       "version": "0.0.0",
+    },
+    "packages/workflow-engine": {
+      "name": "@repo/workflow-engine",
+      "version": "0.0.0",
+      "dependencies": {
+        "zod": "^3.24.1",
+      },
+      "devDependencies": {
+        "@repo/eslint-config": "*",
+        "@repo/typescript-config": "*",
+        "@types/node": "^22.10.5",
+        "eslint": "^9.39.1",
+        "typescript": "5.9.2",
+        "vitest": "^2.1.8",
+      },
     },
   },
   "packages": {
@@ -123,11 +153,15 @@
 
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
+    "@repo/agent-runtime": ["@repo/agent-runtime@workspace:packages/agent-runtime"],
+
     "@repo/eslint-config": ["@repo/eslint-config@workspace:packages/eslint-config"],
 
     "@repo/shared": ["@repo/shared@workspace:packages/shared"],
 
     "@repo/typescript-config": ["@repo/typescript-config@workspace:packages/typescript-config"],
+
+    "@repo/workflow-engine": ["@repo/workflow-engine@workspace:packages/workflow-engine"],
 
     "@rollup/rollup-android-arm-eabi": ["@rollup/rollup-android-arm-eabi@4.62.2", "", { "os": "android", "cpu": "arm" }, "sha512-6o7ZLZK+BeenkZCFNDXqpbjw9bD6nuWonvS/lwQJp7NoVVxm6p3qE7qQ5jGuBjiFsgvqjD8mZAU5oWxTmbOeOg=="],
 

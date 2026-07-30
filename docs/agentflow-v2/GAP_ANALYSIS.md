@@ -40,16 +40,16 @@ original brief gets silently dropped or re-derived from scratch.
 
 | Module | Status | Note |
 |---|---|---|
-| Model-neutral agent runtime + interfaces | Missing | Stack decided (`ADR-0001`); not started — Phase 2 |
-| Google ADK adapter | Missing | Must land behind a feature flag; cannot be built before the base `AgentProvider` interface exists |
-| Multi-agent coordination patterns | Missing | Depends on agent runtime |
-| Structured output validation | Missing | Validation library decided (Zod, `ADR-0001` addendum); not yet applied to agent/tool outputs — Phase 2+ |
-| Business Memory Engine (all 6 memory classes) | Missing | Depends on database + vector store decision |
+| Model-neutral agent runtime + interfaces | **Partially implemented** (`packages/agent-runtime`, `PHASE_1_AGENT_WORKFLOW_CONTRACTS.md`) — `AgentManifest`, `AgentExecutionContext`, `AgentExecutionResult` contracts exist and are tested; no registry, no provider adapters, no execution engine yet |
+| Google ADK adapter | Missing | Must land behind a feature flag; cannot be built before a real provider-adapter layer exists in `agent-runtime` |
+| Multi-agent coordination patterns | Missing | Depends on the (not yet built) agent registry/execution engine |
+| Structured output validation | **Partially implemented** — `AgentExecutionResult`/`AgentExecutionContext` are Zod-validated, parse-or-throw (`packages/agent-runtime`); not yet applied to tool outputs |
+| Business Memory Engine (all 6 memory classes) | Missing | Depends on database + vector store decision; canonical home is `packages/memory-engine` |
 | Memory trust states / lifecycle | Missing | — |
 | Memory Intelligence Layer (summaries, risk/opportunity detection) | Missing | Depends on Memory Engine + deterministic metrics layer |
-| Centralized Tool Registry | Missing | Initial adapters (Gmail, Stripe, etc.) need credentials or explicit mock-adapter scope |
-| Durable Workflow Engine | Missing | Needs a durable backend decision (queue/orchestrator) — see ADR in `IMPLEMENTATION_PLAN.md` |
-| Approval & Governance Layer | Missing | — |
+| Centralized Tool Registry | Missing | Initial adapters (Gmail, Stripe, etc.) need credentials or explicit mock-adapter scope; canonical home is `packages/tool-registry` |
+| Durable Workflow Engine | **Partially implemented** (`packages/workflow-engine`) — all 15 required statuses + deterministic transition table exist and are tested; no persistence, state machine execution, or execution ledger yet |
+| Approval & Governance Layer | Missing | Deterministic evaluator building block exists (`packages/shared/src/policy.ts`, Phase 1); canonical home for the full approval/policy engine is `packages/governance` |
 | Sara Executive Intelligence + command center | Missing | Must be built as a normal agent under the same permission system, not a superuser |
 | Vertical OS extension contract | Missing | `-MediaForgeOS` repo (same org) may carry relevant prior art — not yet inspected |
 | Observability layer | Missing | Needs tracing/logging stack decision |

@@ -1,6 +1,6 @@
 # Current Architecture — DivinexAI-Infrastructure-OS
 
-**Status: Phase 1, two increments in.** Everything below is what actually
+**Status: Phase 1, three increments in.** Everything below is what actually
 exists in the repository as of this writing — not the target architecture
 (`IMPLEMENTATION_PLAN.md`), which remains a proposal for everything not yet
 built.
@@ -21,6 +21,16 @@ built.
     Postgres-based, for service-role-equivalent code paths (Phase 1
     increment 2; see `PHASE_1_AUTHZ_AUDIT_FLAGS.md` for why two transports
     coexist).
+- **`packages/agent-runtime`** (`@repo/agent-runtime`) — `AgentManifest`
+  contract + `validateAgentManifest`, `AgentExecutionContext` +
+  `parseAgentExecutionContext`, `AgentExecutionResult` +
+  `parseAgentExecutionResult`. Pure Zod contracts, no runtime/database
+  coupling yet — no agent registry, no six agent manifests, no execution
+  engine. See `PHASE_1_AGENT_WORKFLOW_CONTRACTS.md`.
+- **`packages/workflow-engine`** (`@repo/workflow-engine`) — all 15 required
+  `WorkflowStatus` values, a deterministic transition table
+  (`isValidWorkflowTransition`/`assertValidWorkflowTransition`), terminal-
+  status helpers. Pure contract, no persistence/state-machine engine yet.
 - **`packages/eslint-config`, `packages/typescript-config`** — shared
   tooling, conventions adopted from MediaForgeOS.
 - **Database schema** (`supabase/migrations/`, applied in filename order):

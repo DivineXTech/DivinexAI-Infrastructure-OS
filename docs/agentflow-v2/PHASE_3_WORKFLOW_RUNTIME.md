@@ -1,7 +1,16 @@
 # Phase 3 — Workflow Runtime and Durable Execution (Design)
 
-**Status: Planning gate. Nothing in this document has been implemented.**
-Stop for review before writing any runtime code, per instruction.
+**Status: Architecture approved.** The base design below was approved with
+three refinements, incorporated in this revision: (1) content-hashing
+primitives live in a new `packages/platform-kernel`, not
+`packages/shared` (`ADR-0014`); (2) agent resolution for DAG validation goes
+through an injected `AgentResolver` abstraction, not a compile-time
+dependency on `agent-runtime`'s `CANONICAL_AGENT_SLUGS`; (3) the workflow
+manifest's step-assignment schema is a discriminated union
+(`agentSlug` | `capability`) from the start, so capability-based routing can
+be introduced later without an incompatible schema change — Phase 3 itself
+only implements and exercises the `agentSlug` branch. Implementation
+proceeds from this revision.
 
 ## 0. Ownership recap (per the brief, unchanged)
 
@@ -249,9 +258,25 @@ export const RetryPolicySchema = z.object({
   deadLetterOnExhaustion: z.boolean().default(true),
 });
 
+// A step is assigned to a target by exactly one method, expressed as a
+// discriminated union from the start — not a single `agentSlug: string`
+// field — so a future assignment kind (capability-based routing) can be
+// added without an incompatible schema change to workflows already
+// published under this shape. Phase 3 implements and exercises only the
+// `agentSlug` branch (the reference workflow); the `capability` branch is
+// schema- and DAG-validation-complete but has no runtime resolver behind it
+// yet (see §4 item 9 and §11a).
+export const WorkflowStepAssignmentSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("agentSlug"), agentSlug: z.string().min(1) }),
+  z.object({ kind: z.literal("capability"), capability: z.string().min(1) }),
+]);
+export type WorkflowStepAssignment = z.infer<
+  typeof WorkflowStepAssignmentSchema
+>;
+
 export const WorkflowStepDefinitionSchema = z.object({
   stepKey: z.string().min(1),
-  agentSlug: z.string().min(1),
+  assignment: WorkflowStepAssignmentSchema,
   dependsOn: z.array(z.string().min(1)),
   approvalRequired: z.boolean().default(false),
   retryPolicy: RetryPolicySchema,
@@ -279,6 +304,13 @@ schemas (code, not data), checked via `instanceof z.ZodType` rather than
 folded into the metadata schema — `validateWorkflowManifest` does both,
 plus the full DAG validation in §4.
 
+The persisted `workflow_steps.agent_slug` column (§1) stores the resolved
+`agentSlug` for `kind: "agentSlug"` steps. A `kind: "capability"` step would
+need its resolved agent populated by a future capability resolver at
+materialization time rather than at manifest-authoring time — out of scope
+for Phase 3 since no manifest uses that branch yet, but the column/
+materialization split is called out here so it isn't a surprise later.
+
 ## 4. DAG validation algorithm (runs at publish time, not just runtime)
 
 `validateWorkflowManifest(manifest)`, in order, each failure throwing a
@@ -302,18 +334,112 @@ specific, named error:
    other step depending on it, and that step must be reachable per (7).
    Combined with (5)'s acyclicity, this guarantees the graph can actually
    finish.
-9. **Every `agentSlug` is a known canonical agent** — checked against
-   `agent-runtime`'s exported `CANONICAL_AGENT_SLUGS` (a deliberate,
-   narrow, justified new dependency: `workflow-engine` depends on
-   `agent-runtime` for this one validation, the same way `agent-runtime`
-   depends on `shared` for `Queryable`).
+9. **Every `kind: "agentSlug"` step's assigned agent exists and is
+   publishable** — resolved through an injected `AgentResolver`
+   (`workflow-engine`-owned interface, §4a), never through a compile-time
+   import of `agent-runtime`'s `CANONICAL_AGENT_SLUGS`. `kind: "capability"`
+   steps are validated structurally only (non-empty `capability` string) in
+   Phase 3 — no capability→agent resolution exists yet (§4b).
 
 Implemented as small, independently testable pure functions in `dag.ts`
 (`findDuplicateStepKeys`, `findOrphanedDependencies`, `detectCycle`,
-`computeEntrySteps`, `computeReachableSteps`, `computeTerminalSteps`), each
-returning a result `validateWorkflowManifest` composes and reports from —
-so a test can exercise "cycle detection" in isolation from "orphaned
-reference rejection" rather than only through the top-level function.
+`computeEntrySteps`, `computeReachableSteps`, `computeTerminalSteps`,
+`validateStepAssignments`), each returning a result
+`validateWorkflowManifest` composes and reports from — so a test can
+exercise "cycle detection" in isolation from "orphaned reference rejection"
+rather than only through the top-level function. Because step-9 validation
+needs an `AgentResolver` (an async, injected dependency) while checks 1–8
+are pure/synchronous, `validateWorkflowManifest` itself is `async` and takes
+the resolver as a parameter — the pure graph functions remain synchronous
+and independently testable without it.
+
+## 4a. `AgentResolver` — resolving agents without a compile-time dependency
+
+The Phase 3 planning gate's second flagged blocker (a direct
+`workflow-engine → agent-runtime` import of `CANONICAL_AGENT_SLUGS`) is
+replaced by an abstraction `workflow-engine` owns and `agent-runtime`
+implements — the same inversion already used for `GovernanceGate` (§10):
+
+```ts
+// packages/workflow-engine/src/agentResolver.ts
+export interface AgentResolutionResult {
+  exists: boolean;
+  publishable: boolean; // has at least one published version
+}
+export interface AgentResolver {
+  resolveAgentSlug(agentSlug: string): Promise<AgentResolutionResult>;
+}
+```
+
+`workflow-engine` never imports anything from `agent-runtime`. Instead,
+`agent-runtime` provides the concrete implementation, wired at whatever
+composition root calls `validateWorkflowManifest` (the seeding function,
+tests, and later `apps/worker`):
+
+```ts
+// packages/agent-runtime/src/agentResolver.ts
+export class CatalogAgentResolver implements AgentResolver {
+  constructor(private readonly catalog: PlatformAgentCatalog) {}
+  async resolveAgentSlug(agentSlug: string): Promise<AgentResolutionResult> {
+    const definition = await this.catalog.getDefinitionBySlug(agentSlug);
+    if (!definition) return { exists: false, publishable: false };
+    const published = await this.catalog.listPublishedVersions(definition.id);
+    return { exists: true, publishable: published.length > 0 };
+  }
+}
+```
+
+This satisfies the brief's "Workflow Engine → TenantAgentRegistry →
+PlatformAgentCatalog" resolution chain across the two distinct moments
+agent resolution actually happens:
+
+- **Publish-time DAG validation** (this section) is platform-scoped — there
+  is no tenant yet, so it resolves through `PlatformAgentCatalog` only (via
+  `CatalogAgentResolver`): does this agent slug exist, and is it publishable
+  at all.
+- **Tenant-scoped execution-time resolution** (§11's `resolveTenantAgent`)
+  is where `TenantAgentRegistry` is actually consulted — given a step's
+  `agentSlug` and a concrete `tenantId`, find that tenant's installation,
+  its pinned version, and its manifest, ready for invocation.
+
+The dependency direction is unchanged from what was already planned
+(`agent-runtime` depends on `workflow-engine`'s interface being satisfied,
+not the reverse) — `workflow-engine` depends on nothing concrete from
+`agent-runtime` at compile time; it depends only on the `AgentResolver`
+interface it declares itself. This also means a future marketplace, partner,
+vertical, or tenant-authored agent needs no `workflow-engine` change at
+all — only a `PlatformAgentCatalog` (or a different `AgentResolver`
+implementation) that knows about it.
+
+## 4b. Capability Resolution (schema-ready, not implemented in Phase 3)
+
+The manifest schema (§3) already supports `kind: "capability"` steps. A
+`CapabilityResolver` interface is declared now, in the same file as
+`AgentResolver`, so the seam exists before it's needed:
+
+```ts
+// packages/workflow-engine/src/capabilityResolver.ts
+export interface CapabilityResolutionResult {
+  supported: boolean;
+  resolvedAgentSlug: string | null; // null when unsupported
+}
+export interface CapabilityResolver {
+  resolveCapability(capability: string): Promise<CapabilityResolutionResult>;
+}
+```
+
+Phase 3 ships **no implementation** of `CapabilityResolver` — DAG validation
+treats every `kind: "capability"` step as structurally valid (non-empty
+string) without calling a resolver at all, and `provisionTenantWorkflow`/
+`workflowRunService` only handle `kind: "agentSlug"` steps end-to-end (the
+reference workflow uses `agentSlug` exclusively, per the brief). Introducing
+real capability routing later (e.g. "any agent tagged `pricing-analysis`")
+means: (a) implementing `CapabilityResolver` against the platform catalog's
+capability tags, (b) passing it into `validateWorkflowManifest` alongside
+`AgentResolver`, and (c) extending step materialization to resolve
+`kind: "capability"` steps to a concrete agent at run time — none of which
+requires changing the manifest schema or breaking any workflow published
+under the schema as designed here.
 
 ## 5. Run and step state machines
 
@@ -506,7 +632,18 @@ Per the ownership split, `agent-runtime` gains:
 - `resolveTenantAgent(registry, tenantId, agentSlug)` (extends
   `tenantAgentRegistry.ts`) — "tenant agent resolution": given a step's
   `agentSlug`, finds the tenant's installed agent, its pinned version, and
-  manifest, ready for invocation.
+  manifest, ready for invocation. This is the `TenantAgentRegistry` leg of
+  the "Workflow Engine → TenantAgentRegistry → PlatformAgentCatalog"
+  resolution chain (§4a); the `PlatformAgentCatalog`-only leg
+  (`CatalogAgentResolver`) is used earlier, at manifest publish time, where
+  no tenant context exists yet.
+- `agentResolver.ts` — `CatalogAgentResolver`, implementing
+  `workflow-engine`'s `AgentResolver` interface (§4a) against
+  `PlatformAgentCatalog`. This is the concrete answer to the Phase 3 gate's
+  second blocker: `workflow-engine` declares the interface, `agent-runtime`
+  supplies the implementation, and the composition root (seeding, tests,
+  `apps/worker`) wires them together — no compile-time
+  `workflow-engine → agent-runtime` import for `CANONICAL_AGENT_SLUGS`.
 
 ## 12. Reference workflow: `client_solution_assessment` v1.0.0
 
@@ -517,6 +654,10 @@ sara_interpret (sara)
         ├─▶ reven_pricing (reven)  ─┼─▶ guardian_review (guardian) ─▶ sara_synthesize (sara)
         └─▶ forge_technical (forge)─┘
 ```
+
+Every step uses `assignment: { kind: "agentSlug", agentSlug: "<slug>" }`
+(§3) — this reference workflow is the concrete case Phase 3 exercises
+end-to-end; no step in it uses `kind: "capability"`.
 
 Seven manifest steps. **The "durable approval-wait state before completion"
 is modeled as the _run_ transitioning `RUNNING → WAITING_FOR_APPROVAL`
@@ -536,17 +677,26 @@ backoffMs: 1000, timeoutMs: 60000, deadLetterOnExhaustion: true`
 ## 13. Proposed file tree
 
 ```
+packages/platform-kernel/src/
+  contentHash.ts              (new — computeContentHash; see §14, ADR-0014)
+  index.ts                     (new — barrel)
+
 packages/agent-runtime/src/
   mockAgentAdapter.ts        (new)
   eligibility.ts             (new)
   tenantAgentRegistry.ts     (extended: resolveTenantAgent)
+  agentResolver.ts            (new — CatalogAgentResolver implementing workflow-engine's AgentResolver)
+  manifestHash.ts             (modified — thin-wraps platform-kernel's computeContentHash)
 
 packages/workflow-engine/src/
   status.ts                  (existing, unchanged — run-level WorkflowStatus)
   stepStatus.ts               (new — WorkflowStepStatus + transitions)
   workflowVersionLifecycle.ts (new — WorkflowVersionStatus + transitions)
   manifest.ts                 (new — WorkflowManifest schema + validateWorkflowManifest)
+  manifestHash.ts              (new — thin-wraps platform-kernel's computeContentHash)
   dag.ts                       (new — pure graph algorithms)
+  agentResolver.ts             (new — AgentResolver interface, §4a)
+  capabilityResolver.ts        (new — CapabilityResolver interface, §4b — no implementation yet)
   platformWorkflowCatalog.ts  (new — PlatformWorkflowCatalog / PgPlatformWorkflowCatalog)
   tenantWorkflowRegistry.ts    (new — TenantWorkflowRegistry / PgTenantWorkflowRegistry)
   seedPlatformWorkflowCatalog.ts (new)
@@ -560,16 +710,16 @@ packages/workflow-engine/src/
   governanceGate.ts            (new — GovernanceGate contract + StaticGovernanceGate)
   reference/clientSolutionAssessment.ts (new — the manifest)
 
-packages/shared/src/
-  contentHash.ts               (new, proposed extraction — see §14)
-
 apps/worker/                   (new — thin polling loop; all decision logic
                                  lives in workflow-engine, tested independently
                                  of the process itself. Not gated by the
                                  apps/admin/Next.js deferral in ADR-0013 §3 —
                                  that deferral is about the UI framework, and
                                  apps/worker was always planned as a separate,
-                                 framework-less concern.)
+                                 framework-less concern. Composes
+                                 CatalogAgentResolver + PgPlatformWorkflowCatalog
+                                 etc. at startup and passes them into
+                                 workflow-engine's functions.)
 
 supabase/migrations/
   <next-ts>_workflow_platform_catalog.sql       (new)
@@ -580,20 +730,22 @@ supabase/migrations_rollback/
   <next-ts+1>_tenant_workflow_installations_rollback.sql (new)
 ```
 
-## 14. Proposed small refactor: shared content-hashing utility
+## 14. `packages/platform-kernel`: foundational content-hashing primitive
 
-Phase 2 built `packages/agent-runtime/src/manifestHash.ts` (canonicalize +
-sha256). Phase 3 needs the identical logic for `workflow_versions`. Per
-`CAPABILITY_PACKAGE_MAPPING.md`'s own stated trigger condition ("move only
-when there is a clear ownership boundary... a specific move has clear
-ownership"), a second package independently needing the exact same
-canonicalize-then-hash logic is that trigger. Proposed: extract
-`packages/shared/src/contentHash.ts` (`computeContentHash(value: unknown):
-string`), and have both `agent-runtime/src/manifestHash.ts` and the new
-`workflow-engine/src/manifestHash.ts` thin-wrap it (`computeManifestHash =
-(m) => computeContentHash(extractMetadata(m))`). This is the one proposed
-exception to "don't move things into `packages/shared`" — flagged
-explicitly rather than done silently, per instruction.
+**Superseded from the original proposal in this section** (extracting into
+`packages/shared/src/contentHash.ts`) **by `ADR-0014`**, per review: content-
+addressable versioning is a distinct, narrow concern from `packages/shared`'s
+cross-cutting tenancy/authorization/audit scope, and deserves its own
+minimal package rather than being folded into `shared` as a one-off
+exception. `packages/platform-kernel/src/contentHash.ts` exports
+`computeContentHash(value: unknown): string` (the same canonicalize + sha256
+logic Phase 2 built); both `agent-runtime/src/manifestHash.ts` and the new
+`workflow-engine/src/manifestHash.ts` thin-wrap it
+(`computeManifestHash = (m) => computeContentHash(extractMetadata(m))`).
+`platform-kernel` has no dependency on `shared` or any domain package, and
+is the intended canonical home for hashing/serialization/deterministic-ID
+primitives needed by every future versioned artifact (tool manifests, memory
+snapshots, marketplace packages) — see `ADR-0014` for the full rationale.
 
 ## 15. Migration and rollback order
 
@@ -606,31 +758,34 @@ Phase 2's two migrations.
 
 ## 16. Test matrix
 
-| Area                                      | File (proposed)                                                                          | Notes                                                                                                   |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Workflow manifest validation              | `manifest.test.ts`                                                                       | valid manifest passes; each metadata violation rejected                                                 |
-| Cycle detection                           | `dag.test.ts`                                                                            | direct cycle, indirect cycle, self-reference                                                            |
-| Invalid dependency rejection              | `dag.test.ts`                                                                            | orphaned reference, duplicate step key, no entry step, unreachable step                                 |
-| Workflow version immutability             | `workflowVersionLifecycle.test.ts`                                                       | mirrors `agentVersionLifecycle.test.ts`                                                                 |
-| Explicit version pinning                  | `workflowRunService.test.ts`                                                             | run always carries a concrete `workflow_version_id`; no "latest" resolution path exists to test against |
-| Tenant workflow provisioning              | `provisionTenantWorkflow.test.ts`                                                        | idempotent, permission-checked, audit-logged — mirrors `provisionTenantAgents.test.ts`                  |
-| Cross-tenant RLS isolation                | `crossTenantIsolation.test.ts`                                                           | all 6 tenant tables + 2 platform tables, mirrors Phase 2's file                                         |
-| Legal/illegal run transitions             | _(already covered — `packages/workflow-engine/test/status.test.ts`, Phase 1, unchanged)_ |                                                                                                         |
-| Legal/illegal step transitions            | `stepStatus.test.ts`                                                                     | exhaustive, mirrors `status.test.ts`'s style                                                            |
-| Parallel branch eligibility               | `stepScheduler.test.ts`                                                                  | pulse/reven/forge all become `READY` together once `nova_plan` succeeds                                 |
-| Dependency gating                         | `stepScheduler.test.ts`                                                                  | `guardian_review` stays `PENDING` until all three siblings `SUCCEEDED`                                  |
-| Atomic step claiming                      | `stepLeasing.test.ts`                                                                    | two concurrent claim attempts on one step — exactly one succeeds                                        |
-| Stale lease recovery                      | `recovery.test.ts`                                                                       | expired lease reclaimed, attempt incremented, retry/dead-letter decision applied                        |
-| Invalid lease-token rejection             | `stepLeasing.test.ts`                                                                    | commit with a stale/reclaimed token affects zero rows                                                   |
-| Idempotent workflow creation              | `workflowRunService.test.ts`                                                             | same `idempotency_key` twice returns the same run, no duplicate                                         |
-| Idempotent step materialization           | `workflowRunService.test.ts`                                                             | materializing twice creates no duplicate steps/dependencies                                             |
-| Retry scheduling                          | `retryPolicy.test.ts`                                                                    | exponential/fixed backoff computation                                                                   |
-| Maximum-attempt handling                  | `retryPolicy.test.ts`                                                                    | attempt reaches `maxAttempts` → dead-letter or fail per policy                                          |
-| Dead-letter creation                      | `retryPolicy.test.ts` + `recovery.test.ts`                                               | `workflow_dead_letters` row created exactly once                                                        |
-| Cancellation propagation                  | `workflowRunService.test.ts`                                                             | cancelling a run cancels its `PENDING`/`READY`/`LEASED` steps, leaves `SUCCEEDED` ones alone            |
-| Worker restart recovery                   | `recovery.test.ts`                                                                       | simulate a crash mid-step (lease never renewed), confirm reconciliation recovers it exactly once        |
-| Approval waiting and resume placeholder   | `workflowRunService.test.ts`                                                             | `WAITING_FOR_APPROVAL → RUNNING`/`REJECTED` stub                                                        |
-| Complete reference workflow (mock agents) | `referenceWorkflow.test.ts`                                                              | full `client_solution_assessment` run start-to-finish, integration-style                                |
+| Area                                            | File (proposed)                                                                          | Notes                                                                                                                                                                  |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Workflow manifest validation                    | `manifest.test.ts`                                                                       | valid manifest passes; each metadata violation rejected                                                                                                                |
+| Cycle detection                                 | `dag.test.ts`                                                                            | direct cycle, indirect cycle, self-reference                                                                                                                           |
+| Invalid dependency rejection                    | `dag.test.ts`                                                                            | orphaned reference, duplicate step key, no entry step, unreachable step                                                                                                |
+| Workflow version immutability                   | `workflowVersionLifecycle.test.ts`                                                       | mirrors `agentVersionLifecycle.test.ts`                                                                                                                                |
+| Explicit version pinning                        | `workflowRunService.test.ts`                                                             | run always carries a concrete `workflow_version_id`; no "latest" resolution path exists to test against                                                                |
+| Tenant workflow provisioning                    | `provisionTenantWorkflow.test.ts`                                                        | idempotent, permission-checked, audit-logged — mirrors `provisionTenantAgents.test.ts`                                                                                 |
+| Cross-tenant RLS isolation                      | `crossTenantIsolation.test.ts`                                                           | all 6 tenant tables + 2 platform tables, mirrors Phase 2's file                                                                                                        |
+| Legal/illegal run transitions                   | _(already covered — `packages/workflow-engine/test/status.test.ts`, Phase 1, unchanged)_ |                                                                                                                                                                        |
+| Legal/illegal step transitions                  | `stepStatus.test.ts`                                                                     | exhaustive, mirrors `status.test.ts`'s style                                                                                                                           |
+| Parallel branch eligibility                     | `stepScheduler.test.ts`                                                                  | pulse/reven/forge all become `READY` together once `nova_plan` succeeds                                                                                                |
+| Dependency gating                               | `stepScheduler.test.ts`                                                                  | `guardian_review` stays `PENDING` until all three siblings `SUCCEEDED`                                                                                                 |
+| Atomic step claiming                            | `stepLeasing.test.ts`                                                                    | two concurrent claim attempts on one step — exactly one succeeds                                                                                                       |
+| Stale lease recovery                            | `recovery.test.ts`                                                                       | expired lease reclaimed, attempt incremented, retry/dead-letter decision applied                                                                                       |
+| Invalid lease-token rejection                   | `stepLeasing.test.ts`                                                                    | commit with a stale/reclaimed token affects zero rows                                                                                                                  |
+| Idempotent workflow creation                    | `workflowRunService.test.ts`                                                             | same `idempotency_key` twice returns the same run, no duplicate                                                                                                        |
+| Idempotent step materialization                 | `workflowRunService.test.ts`                                                             | materializing twice creates no duplicate steps/dependencies                                                                                                            |
+| Retry scheduling                                | `retryPolicy.test.ts`                                                                    | exponential/fixed backoff computation                                                                                                                                  |
+| Maximum-attempt handling                        | `retryPolicy.test.ts`                                                                    | attempt reaches `maxAttempts` → dead-letter or fail per policy                                                                                                         |
+| Dead-letter creation                            | `retryPolicy.test.ts` + `recovery.test.ts`                                               | `workflow_dead_letters` row created exactly once                                                                                                                       |
+| Cancellation propagation                        | `workflowRunService.test.ts`                                                             | cancelling a run cancels its `PENDING`/`READY`/`LEASED` steps, leaves `SUCCEEDED` ones alone                                                                           |
+| Worker restart recovery                         | `recovery.test.ts`                                                                       | simulate a crash mid-step (lease never renewed), confirm reconciliation recovers it exactly once                                                                       |
+| Approval waiting and resume placeholder         | `workflowRunService.test.ts`                                                             | `WAITING_FOR_APPROVAL → RUNNING`/`REJECTED` stub                                                                                                                       |
+| Complete reference workflow (mock agents)       | `referenceWorkflow.test.ts`                                                              | full `client_solution_assessment` run start-to-finish, integration-style                                                                                               |
+| Agent-slug resolution via injected resolver     | `dag.test.ts` / `agentResolver.test.ts` (agent-runtime)                                  | unknown slug rejected, existing-but-unpublished slug rejected, published slug accepted — no compile-time `CANONICAL_AGENT_SLUGS` reference in `workflow-engine`'s test |
+| Capability-kind step structural validation      | `manifest.test.ts`                                                                       | `kind: "capability"` step with non-empty `capability` string passes DAG validation without a resolver call                                                             |
+| Content-hash canonicalization (platform-kernel) | `packages/platform-kernel/test/contentHash.test.ts`                                      | nested-object key ordering, array-order preservation — mirrors the bug Phase 2 caught in `manifestHash.ts`                                                             |
 
 **Isolation:** same pattern as Phase 2 — a dedicated local test database
 (proposed name: `agentflow_test_workflow_engine`), added to
@@ -641,18 +796,22 @@ it will after this phase — it doesn't yet).
 
 ## 17. Unresolved blockers
 
-None that block _this planning document_. Two decisions to confirm before
-implementation starts:
+**Both originally flagged blockers are resolved, with adjustments, per
+review:**
 
-1. **The `packages/shared/src/contentHash.ts` extraction (§14)** — a
-   deliberate, narrow exception to "don't move things into `packages/shared`
-   casually." Flagged for explicit sign-off rather than assumed.
-2. **`workflow-engine` importing `agent-runtime`'s `CANONICAL_AGENT_SLUGS`**
-   for DAG validation (§4, item 9) — a new inter-package dependency in the
-   _other_ direction from Phase 2's `agent-runtime → shared` dependency.
-   Confirm this is an acceptable coupling (it's one-way: `workflow-engine`
-   depends on `agent-runtime`, never the reverse) before it's built.
+1. ~~The `packages/shared/src/contentHash.ts` extraction~~ — resolved as a
+   new dedicated `packages/platform-kernel` package instead (`ADR-0014`,
+   §14). `packages/shared` gains no new code.
+2. ~~`workflow-engine` importing `agent-runtime`'s `CANONICAL_AGENT_SLUGS`~~
+   — resolved as an injected `AgentResolver` abstraction (§4a):
+   `workflow-engine` declares the interface, `agent-runtime` implements it
+   against `PlatformAgentCatalog`, no compile-time dependency either
+   direction beyond the interface itself. A third refinement was added
+   alongside this one: the workflow manifest's step-assignment schema is a
+   discriminated union (`agentSlug` | `capability`) from the start, with a
+   declared-but-unimplemented `CapabilityResolver` seam (§4b), so future
+   capability-based routing doesn't require a breaking schema change.
 
-The Phase 1 Supabase-validation gate remains open and unrelated to either
-of these — Phase 3, like Phase 2, is fully testable against local Postgres
-without it.
+No other blocker is currently open. The Phase 1 Supabase-validation gate
+remains open and unrelated to any of these — Phase 3, like Phase 2, is
+fully testable against local Postgres without it.

@@ -82,6 +82,9 @@ confirmation before Phase 1 starts.
 │   ├── shared/                       # BUILT, Phase 1 — cross-cutting tenancy types, auth helpers, policy evaluator,
 │   │                                  # feature flags, tenant settings, audit/security events. Not refactored into
 │   │                                  # the packages above except with clear ownership — see CAPABILITY_PACKAGE_MAPPING.md
+│   ├── platform-kernel/              # Phase 3 (ADR-0014) — ninth canonical package. Versioned-artifact
+│   │                                  # primitives only: content hashing/canonicalization (computeContentHash),
+│   │                                  # future serialization/deterministic-ID helpers. No domain logic.
 │   ├── eslint-config/                # BUILT, Phase 1
 │   └── typescript-config/            # BUILT, Phase 1
 ├── supabase/
@@ -298,18 +301,18 @@ how. Current open items, carried forward rather than newly discovered:
 3. **Platform-wide vs. per-tenant agents — resolved.** Platform-defined,
    tenant-installed (`ADR-0013` addendum); this was the open question
    `FILE_CHANGE_PLAN.md`'s first draft surfaced.
-4. **`packages/shared/src/contentHash.ts` extraction (Phase 3, pending
-   sign-off).** Phase 3 needs the identical canonicalize-then-hash logic
-   Phase 2 built as `packages/agent-runtime/src/manifestHash.ts`. Proposed:
-   extract a shared `computeContentHash` per `CAPABILITY_PACKAGE_MAPPING.md`'s
-   own stated trigger ("a second package independently needing identical
-   logic"), with both packages thin-wrapping it. Flagged explicitly rather
-   than done silently — see `PHASE_3_WORKFLOW_RUNTIME.md` §14.
-5. **`workflow-engine` depending on `agent-runtime`'s `CANONICAL_AGENT_SLUGS`
-   (Phase 3, pending sign-off).** DAG validation (§4 item 9 of
-   `PHASE_3_WORKFLOW_RUNTIME.md`) needs to reject a workflow step whose
-   `agentSlug` isn't one of the six canonical agents. This is a new,
-   one-way `workflow-engine → agent-runtime` dependency (never the
-   reverse) — flagged for confirmation before it's built.
+4. **~~`packages/shared/src/contentHash.ts` extraction~~ — resolved.**
+   Approved instead as a new dedicated package, `packages/platform-kernel`
+   (`ADR-0014`) — `packages/shared` gains no new code. See
+   `PHASE_3_WORKFLOW_RUNTIME.md` §14.
+5. **~~`workflow-engine` depending on `agent-runtime`'s
+   `CANONICAL_AGENT_SLUGS`~~ — resolved.** Approved instead as an injected
+   `AgentResolver` abstraction: `workflow-engine` declares the interface,
+   `agent-runtime` implements it against `PlatformAgentCatalog`, wired at
+   the composition root — no compile-time dependency either direction
+   beyond the interface. See `PHASE_3_WORKFLOW_RUNTIME.md` §4a. A related
+   `CapabilityResolver` seam (§4b) was added at the same time so the
+   workflow manifest schema can support capability-based routing later
+   without a breaking change; it ships unimplemented in Phase 3.
 
 No other blocker is currently open.

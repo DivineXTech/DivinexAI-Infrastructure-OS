@@ -1,12 +1,20 @@
 # File Change Plan — Phase 3: Workflow Runtime and Durable Execution
 
-**Status: Planning gate. Nothing below has been implemented.** This
+**Status: Architecture approved, implementation proceeding.** This
 supersedes the Phase 2 content that previously occupied this file (Phase 2
 itself is complete and committed at `aeb0234`; its file-change plan is now
 historical and superseded here the same way the original nullable-`tenant_id`
 draft was superseded within Phase 2). Full design rationale lives in
 `PHASE_3_WORKFLOW_RUNTIME.md`; this file is the file-change-plan excerpt of
 that document, kept in the same place Phase 1/Phase 2 readers already look.
+
+**Approved with three refinements** (incorporated below): a new
+`packages/platform-kernel` for content-hashing primitives instead of
+`packages/shared` (`ADR-0014`); an injected `AgentResolver` abstraction
+instead of a compile-time `workflow-engine → agent-runtime` dependency on
+`CANONICAL_AGENT_SLUGS`; and a discriminated-union step-assignment schema
+(`agentSlug` | `capability`) so capability-based routing can be introduced
+later without a breaking schema change.
 
 ## Model, in one sentence
 
@@ -113,6 +121,36 @@ export function resolveTenantAgent(
 ): Promise<TenantAgentInstallation>; // throws if not installed, not enabled, or below MOCK_EXECUTABLE
 ```
 
+New in `packages/workflow-engine/src/agentResolver.ts` (owned by
+`workflow-engine`, no import from `agent-runtime`) and implemented in
+`packages/agent-runtime/src/agentResolver.ts`:
+
+```ts
+// workflow-engine
+export interface AgentResolver {
+  resolveAgentSlug(
+    agentSlug: string,
+  ): Promise<{ exists: boolean; publishable: boolean }>;
+}
+
+// agent-runtime
+export class CatalogAgentResolver implements AgentResolver {
+  constructor(private readonly catalog: PlatformAgentCatalog) {}
+  resolveAgentSlug(agentSlug: string) {
+    /* PlatformAgentCatalog-backed */
+  }
+}
+```
+
+This replaces the originally proposed `CANONICAL_AGENT_SLUGS` compile-time
+import for DAG validation (§4 item 9 of `PHASE_3_WORKFLOW_RUNTIME.md`) —
+`workflow-engine` depends only on the `AgentResolver` interface it declares;
+`agent-runtime` supplies the implementation, wired at the composition root
+(seeding, tests, `apps/worker`). A parallel, currently-unimplemented
+`CapabilityResolver` interface is declared alongside it
+(`packages/workflow-engine/src/capabilityResolver.ts`) so capability-based
+step assignment (§ below) has a resolution seam ready before it's needed.
+
 New in `packages/agent-runtime/src/`:
 
 ```ts
@@ -170,6 +208,17 @@ just schema parsing), computes a content hash, upserts `workflow_definitions`
 by slug, inserts or hash-verifies `workflow_versions`. A hash mismatch on an
 existing `(definition, version)` pair throws rather than silently
 overwriting — the same immutability guarantee as agents.
+
+## Workflow manifest step assignment
+
+`WorkflowStepDefinitionSchema.assignment` is a Zod discriminated union
+(`{ kind: "agentSlug"; agentSlug: string }` | `{ kind: "capability";
+capability: string }`) rather than a bare `agentSlug: string` field — see
+`PHASE_3_WORKFLOW_RUNTIME.md` §3/§4b. Phase 3's reference workflow uses
+`kind: "agentSlug"` exclusively; `kind: "capability"` is schema- and
+DAG-validation-complete (structural check only) with no resolver behind it,
+so introducing real capability routing later doesn't require a breaking
+manifest-schema change.
 
 ## Migrations
 

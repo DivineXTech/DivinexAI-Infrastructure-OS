@@ -50,10 +50,9 @@ export class ApprovalFixtureBuilder {
     const workflowVersionId = await this.ensureWorkflowCatalogSeeded();
     const { rows: definitionRows } = await this.pool.query<{
       workflow_definition_id: string;
-    }>(
-      "select workflow_definition_id from workflow_versions where id = $1",
-      [workflowVersionId],
-    );
+    }>("select workflow_definition_id from workflow_versions where id = $1", [
+      workflowVersionId,
+    ]);
     const { rows: twRows } = await this.pool.query<{ id: string }>(
       `insert into tenant_workflows (tenant_id, workflow_definition_id, workflow_version_id)
        values ($1, $2, $3)
@@ -138,7 +137,10 @@ export class ApprovalFixtureBuilder {
       action: input.action ?? "communication.send.external",
       parameters: input.parameters ?? { recipient: "client@example.com" },
       targetResource: input.targetResource ?? null,
-      requestingActor: input.requestingActor ?? { type: "worker", id: "test-worker" },
+      requestingActor: input.requestingActor ?? {
+        type: "worker",
+        id: "test-worker",
+      },
       requestingTenantAgentId: input.requestingTenantAgentId ?? null,
       workflowRunId: input.workflowRunId,
       workflowStepId: input.workflowStepId,
@@ -163,8 +165,11 @@ export class ApprovalFixtureBuilder {
       requestingTenantAgentId: string | null;
       parameters: Record<string, unknown>;
     }> = {},
-  ): Promise<ApprovalRequest & { workflowRunId: string; workflowStepId: string }> {
-    const { workflowRunId, workflowStepId } = await this.materializeRunAndStep(tenantId);
+  ): Promise<
+    ApprovalRequest & { workflowRunId: string; workflowStepId: string }
+  > {
+    const { workflowRunId, workflowStepId } =
+      await this.materializeRunAndStep(tenantId);
     const policyEvaluationId = await this.insertPolicyEvaluation({
       tenantId,
       workflowRunId,

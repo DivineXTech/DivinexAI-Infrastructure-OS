@@ -1021,7 +1021,7 @@ approval workflow cannot complete correctly without it. Owned entirely by
 never derives run/step state itself.
 
 **Implementation-discovered sub-gap, resolved the same way:** nothing in
-Phase 3 ever moves a run's status *out of* `DRAFT` in the first place —
+Phase 3 ever moves a run's status _out of_ `DRAFT` in the first place —
 `createWorkflowRun` inserts at `DRAFT` and no code path advances it, so
 every one of the transitions below (`VALIDATING`, `WAITING_FOR_APPROVAL`,
 etc.) would otherwise be structurally unreachable (`isValidWorkflowTransition`

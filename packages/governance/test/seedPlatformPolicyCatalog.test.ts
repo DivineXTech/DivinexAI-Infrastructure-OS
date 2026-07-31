@@ -1,7 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { resetAndMigrate } from "./setupTestDb.js";
-import { seedPlatformPolicyCatalog, type PolicySeed } from "../src/seedPlatformPolicyCatalog.js";
+import {
+  seedPlatformPolicyCatalog,
+  type PolicySeed,
+} from "../src/seedPlatformPolicyCatalog.js";
 import { PgPlatformPolicyCatalog } from "../src/platformPolicyCatalog.js";
 
 const TEST_DATABASE_URL =
@@ -19,7 +22,11 @@ function makeSeed(overrides: Partial<PolicySeed> = {}): PolicySeed {
     version: "1.0.0",
     document: {
       appliesToActions: ["communication.send.external"],
-      conditions: { field: "action", operator: "eq", value: "communication.send.external" },
+      conditions: {
+        field: "action",
+        operator: "eq",
+        value: "communication.send.external",
+      },
       effect: "REQUIRE_APPROVAL",
       riskLevel: "MEDIUM",
       requiredPermissions: [],

@@ -138,7 +138,14 @@ describe("reconcileWorkflowRunOutcome", () => {
     ]);
     await pool.query(
       "update workflow_steps set status = 'FAILED', error = $2::jsonb, completed_at = now() where workflow_run_id = $1 and step_key = 'sara_synthesize'",
-      [runId, JSON.stringify({ retryable: false, code: "worker_error", message: "boom" })],
+      [
+        runId,
+        JSON.stringify({
+          retryable: false,
+          code: "worker_error",
+          message: "boom",
+        }),
+      ],
     );
 
     const result = await reconcileWorkflowRunOutcome(pool, runId);
@@ -295,7 +302,14 @@ describe("reconcileWorkflowRunOutcome", () => {
     ]);
     await pool.query(
       "update workflow_steps set status = 'FAILED', error = $2::jsonb, completed_at = now() where workflow_run_id = $1 and step_key = 'sara_synthesize'",
-      [runId, JSON.stringify({ retryable: false, code: "worker_error", message: "boom" })],
+      [
+        runId,
+        JSON.stringify({
+          retryable: false,
+          code: "worker_error",
+          message: "boom",
+        }),
+      ],
     );
     // Contrive a run status with no legal transition to FAILED at all
     // (WAITING_FOR_INPUT -> RUNNING | EXPIRED | CANCELLED only).

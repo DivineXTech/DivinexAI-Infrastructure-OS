@@ -96,9 +96,7 @@ function mapVersion(row: VersionRow): RiskClassificationVersion {
   };
 }
 
-export class PgPlatformRiskClassificationCatalog
-  implements PlatformRiskClassificationCatalog
-{
+export class PgPlatformRiskClassificationCatalog implements PlatformRiskClassificationCatalog {
   constructor(private readonly db: Queryable) {}
 
   async getDefinitionByAction(

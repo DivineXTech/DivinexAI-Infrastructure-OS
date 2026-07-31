@@ -13,7 +13,11 @@ import {
 function baseDocument() {
   return {
     appliesToActions: ["communication.send.external"],
-    conditions: { field: "action", operator: "eq" as const, value: "communication.send.external" },
+    conditions: {
+      field: "action",
+      operator: "eq" as const,
+      value: "communication.send.external",
+    },
     effect: "REQUIRE_APPROVAL" as const,
     riskLevel: "MEDIUM" as const,
     requiredPermissions: [],
@@ -31,7 +35,10 @@ describe("PolicyDocumentSchema", () => {
 
   it("accepts appliesToActions containing the wildcard", () => {
     expect(() =>
-      PolicyDocumentSchema.parse({ ...baseDocument(), appliesToActions: ["*"] }),
+      PolicyDocumentSchema.parse({
+        ...baseDocument(),
+        appliesToActions: ["*"],
+      }),
     ).not.toThrow();
   });
 
@@ -65,7 +72,11 @@ describe("PolicyDocumentSchema", () => {
           {
             any: [
               { field: "riskLevel", operator: "eq" as const, value: "HIGH" },
-              { field: "riskLevel", operator: "eq" as const, value: "CRITICAL" },
+              {
+                field: "riskLevel",
+                operator: "eq" as const,
+                value: "CRITICAL",
+              },
             ],
           },
         ],
@@ -76,7 +87,10 @@ describe("PolicyDocumentSchema", () => {
 
   it("rejects a non-positive requiredApprovalCount", () => {
     expect(() =>
-      PolicyDocumentSchema.parse({ ...baseDocument(), requiredApprovalCount: 0 }),
+      PolicyDocumentSchema.parse({
+        ...baseDocument(),
+        requiredApprovalCount: 0,
+      }),
     ).toThrow();
   });
 
@@ -105,14 +119,20 @@ describe("PolicyOverrideDocumentSchema", () => {
       additionalRequiredApprovalCount: 1,
       additionalRequiredApproverRoles: ["security-lead"],
       additionalRequiredPermissions: ["tenant.manage"],
-      tightenedConditions: { field: "riskLevel", operator: "eq", value: "CRITICAL" },
+      tightenedConditions: {
+        field: "riskLevel",
+        operator: "eq",
+        value: "CRITICAL",
+      },
     });
     expect(parsed.additionalRequiredApprovalCount).toBe(1);
   });
 
   it("rejects a negative additionalRequiredApprovalCount (cannot express a reduction)", () => {
     expect(() =>
-      PolicyOverrideDocumentSchema.parse({ additionalRequiredApprovalCount: -1 }),
+      PolicyOverrideDocumentSchema.parse({
+        additionalRequiredApprovalCount: -1,
+      }),
     ).toThrow();
   });
 });
@@ -144,12 +164,9 @@ describe("EFFECT_PRECEDENCE", () => {
     ["REQUIRE_APPROVAL", "ALLOW", "REQUIRE_APPROVAL"],
     ["ALLOW", "ALLOW", "ALLOW"],
     ["BLOCK", "DENY", "BLOCK"],
-  ] as const)(
-    "mostRestrictiveEffect(%s, %s) -> %s",
-    (a, b, expected) => {
-      expect(mostRestrictiveEffect(a, b)).toBe(expected);
-    },
-  );
+  ] as const)("mostRestrictiveEffect(%s, %s) -> %s", (a, b, expected) => {
+    expect(mostRestrictiveEffect(a, b)).toBe(expected);
+  });
 });
 
 describe("risk level ranking", () => {

@@ -167,7 +167,11 @@ describe("reconcileGovernanceRuntime", () => {
 
     const { rows } = await pool.query<{ id: string; status: string }>(
       `select id, status from workflow_steps where id in ($1, $2, $3)`,
-      [expiring.workflowStepId, pendingContinuation.workflowStepId, orphaned.workflowStepId],
+      [
+        expiring.workflowStepId,
+        pendingContinuation.workflowStepId,
+        orphaned.workflowStepId,
+      ],
     );
     const byId = Object.fromEntries(rows.map((r) => [r.id, r.status]));
     expect(byId[expiring.workflowStepId]).toBe("EXPIRED");

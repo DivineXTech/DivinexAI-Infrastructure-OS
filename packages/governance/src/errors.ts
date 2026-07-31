@@ -1,7 +1,9 @@
 /** The targeted `approval_requests` row is already in a terminal state (§7 step 2). */
 export class AlreadyResolvedError extends Error {
   constructor(approvalRequestId: string) {
-    super(`Approval request "${approvalRequestId}" is already resolved (terminal status)`);
+    super(
+      `Approval request "${approvalRequestId}" is already resolved (terminal status)`,
+    );
     this.name = "AlreadyResolvedError";
   }
 }

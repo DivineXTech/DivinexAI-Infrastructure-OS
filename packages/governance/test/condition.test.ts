@@ -19,7 +19,9 @@ describe("resolveFieldPath", () => {
   });
 
   it("returns undefined for an unresolvable path", () => {
-    expect(resolveFieldPath(context, "parameters.missing.deeper")).toBeUndefined();
+    expect(
+      resolveFieldPath(context, "parameters.missing.deeper"),
+    ).toBeUndefined();
   });
 });
 

@@ -178,7 +178,8 @@ export async function evaluatePolicy(
         match.requiredApprovalCount,
       );
     }
-    for (const role of match.requiredApproverRoles) requiredApproverRoles.add(role);
+    for (const role of match.requiredApproverRoles)
+      requiredApproverRoles.add(role);
     for (const perm of match.requiredPermissions) requiredPermissions.add(perm);
     if (match.riskLevel) riskLevel = maxRiskLevel(riskLevel, match.riskLevel);
     if (match.approvalExpirationMs !== null) {

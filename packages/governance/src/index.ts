@@ -24,7 +24,10 @@ export {
   InvalidApprovalTransitionError,
 } from "./approvalRequestLifecycle.js";
 
-export type { GovernedAction, GovernedActionOrWildcard } from "./actionCatalog.js";
+export type {
+  GovernedAction,
+  GovernedActionOrWildcard,
+} from "./actionCatalog.js";
 export {
   GOVERNED_ACTIONS,
   GovernedActionSchema,

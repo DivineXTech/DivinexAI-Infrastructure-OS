@@ -14,7 +14,9 @@ const TEST_DATABASE_URL =
 const pool = new Pool({ connectionString: TEST_DATABASE_URL });
 const catalog = new PgPlatformRiskClassificationCatalog(pool);
 
-function makeSeed(overrides: Partial<RiskClassificationSeed> = {}): RiskClassificationSeed {
+function makeSeed(
+  overrides: Partial<RiskClassificationSeed> = {},
+): RiskClassificationSeed {
   return {
     action: "*",
     version: "1.0.0",

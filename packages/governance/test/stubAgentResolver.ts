@@ -1,4 +1,7 @@
-import type { AgentResolver, AgentResolutionResult } from "@repo/workflow-engine";
+import type {
+  AgentResolver,
+  AgentResolutionResult,
+} from "@repo/workflow-engine";
 
 /**
  * Self-contained copy of

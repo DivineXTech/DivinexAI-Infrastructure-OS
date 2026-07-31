@@ -2,12 +2,18 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 import { resetAndMigrate } from "./setupTestDb.js";
 import { seedCoreFixtures, type CoreFixtures } from "./seedFixtures.js";
-import { seedPlatformPolicyCatalog, type PolicySeed } from "../src/seedPlatformPolicyCatalog.js";
+import {
+  seedPlatformPolicyCatalog,
+  type PolicySeed,
+} from "../src/seedPlatformPolicyCatalog.js";
 import { seedPlatformRiskClassificationCatalog } from "../src/seedPlatformRiskClassificationCatalog.js";
 import { PgPlatformPolicyCatalog } from "../src/platformPolicyCatalog.js";
 import { PgPlatformRiskClassificationCatalog } from "../src/platformRiskClassificationCatalog.js";
 import { PgTenantPolicyRegistry } from "../src/tenantPolicyRegistry.js";
-import { provisionTenantPolicy, createTenantPolicyOverride } from "../src/provisionTenantPolicy.js";
+import {
+  provisionTenantPolicy,
+  createTenantPolicyOverride,
+} from "../src/provisionTenantPolicy.js";
 import { evaluatePolicy } from "../src/evaluatePolicy.js";
 import type { PolicyEffect, RiskLevel } from "../src/policyDocument.js";
 import { PgTenantAccessEvaluator } from "@repo/shared";
@@ -59,7 +65,10 @@ async function seedUnconditionalPolicy(
   return { policyDefinitionId: definition!.id, policyVersionId: version!.id };
 }
 
-async function seedRiskFloor(action: string, riskLevel: RiskLevel): Promise<void> {
+async function seedRiskFloor(
+  action: string,
+  riskLevel: RiskLevel,
+): Promise<void> {
   await seedPlatformRiskClassificationCatalog(pool, [
     { action, version: "1.0.0", riskLevel, rationale: "test" },
   ]);
@@ -75,7 +84,10 @@ afterAll(async () => {
   await pool.end();
 });
 
-function baseContext(action: string, overrides: Partial<Parameters<typeof evaluatePolicy>[4]> = {}) {
+function baseContext(
+  action: string,
+  overrides: Partial<Parameters<typeof evaluatePolicy>[4]> = {},
+) {
   return {
     tenantId: fixtures.tenantA,
     action,
@@ -107,8 +119,20 @@ describe("evaluatePolicy — no matching policy", () => {
 describe("evaluatePolicy — determinism", () => {
   it("identical inputs produce an identical decision content across repeated calls", async () => {
     await seedUnconditionalPolicy("data.export", "REQUIRE_APPROVAL");
-    const a = await evaluatePolicy(pool, policyCatalog, riskCatalog, registry, baseContext("data.export"));
-    const b = await evaluatePolicy(pool, policyCatalog, riskCatalog, registry, baseContext("data.export"));
+    const a = await evaluatePolicy(
+      pool,
+      policyCatalog,
+      riskCatalog,
+      registry,
+      baseContext("data.export"),
+    );
+    const b = await evaluatePolicy(
+      pool,
+      policyCatalog,
+      riskCatalog,
+      registry,
+      baseContext("data.export"),
+    );
     expect(a.effect).toBe(b.effect);
     expect(a.riskLevel).toBe(b.riskLevel);
     expect(a.requiredApprovalCount).toBe(b.requiredApprovalCount);
@@ -119,10 +143,14 @@ describe("evaluatePolicy — determinism", () => {
 
 describe("evaluatePolicy — platform mandatory precedence", () => {
   it("a mandatory BLOCK survives regardless of tenant assignment disabling it", async () => {
-    const { policyDefinitionId } = await seedUnconditionalPolicy("data.delete", "BLOCK", {
-      mandatory: true,
-      overridePolicy: "immutable",
-    });
+    const { policyDefinitionId } = await seedUnconditionalPolicy(
+      "data.delete",
+      "BLOCK",
+      {
+        mandatory: true,
+        overridePolicy: "immutable",
+      },
+    );
     // Tenant attempts to disable it — has no effect on a mandatory policy.
     const { rows } = await pool.query<{ id: string }>(
       "select id from policy_versions where policy_definition_id = $1",
@@ -149,7 +177,9 @@ describe("evaluatePolicy — platform mandatory precedence", () => {
 
 describe("evaluatePolicy — tenant opt-out of a non-mandatory default", () => {
   it("absence of an assignment row means default-on", async () => {
-    await seedUnconditionalPolicy("refund.issue", "REQUIRE_APPROVAL", { mandatory: false });
+    await seedUnconditionalPolicy("refund.issue", "REQUIRE_APPROVAL", {
+      mandatory: false,
+    });
     const decision = await evaluatePolicy(
       pool,
       policyCatalog,
@@ -161,11 +191,10 @@ describe("evaluatePolicy — tenant opt-out of a non-mandatory default", () => {
   });
 
   it("an explicit disabling assignment excludes a non-mandatory policy", async () => {
-    const { policyDefinitionId, policyVersionId } = await seedUnconditionalPolicy(
-      "payout.initiate",
-      "REQUIRE_APPROVAL",
-      { mandatory: false },
-    );
+    const { policyDefinitionId, policyVersionId } =
+      await seedUnconditionalPolicy("payout.initiate", "REQUIRE_APPROVAL", {
+        mandatory: false,
+      });
     await provisionTenantPolicy(pool, access, {
       tenantId: fixtures.tenantA,
       actorUserId: fixtures.userAOwner,
@@ -193,7 +222,12 @@ describe("evaluatePolicy — deterministic conflict resolution at every preceden
     ["permission.modify", "DENY", "ALLOW", "DENY"],
     ["secret.access", "ESCALATE", "REQUIRE_APPROVAL", "ESCALATE"],
     ["secret.rotate", "ESCALATE", "ALLOW", "ESCALATE"],
-    ["content.publish.external", "REQUIRE_APPROVAL", "ALLOW", "REQUIRE_APPROVAL"],
+    [
+      "content.publish.external",
+      "REQUIRE_APPROVAL",
+      "ALLOW",
+      "REQUIRE_APPROVAL",
+    ],
   ];
 
   it.each(cases)(
@@ -219,7 +253,11 @@ describe("evaluatePolicy — risk classification floor and policy-asserted raise
     await seedUnconditionalPolicy("pricing.modify", "REQUIRE_APPROVAL", {
       document: {
         appliesToActions: ["pricing.modify"],
-        conditions: { field: "action", operator: "eq", value: "pricing.modify" },
+        conditions: {
+          field: "action",
+          operator: "eq",
+          value: "pricing.modify",
+        },
         effect: "REQUIRE_APPROVAL",
         riskLevel: "LOW", // attempts to assert LOWER than the MEDIUM floor
         requiredPermissions: [],
@@ -245,7 +283,11 @@ describe("evaluatePolicy — risk classification floor and policy-asserted raise
     await seedUnconditionalPolicy("billing.modify", "REQUIRE_APPROVAL", {
       document: {
         appliesToActions: ["billing.modify"],
-        conditions: { field: "action", operator: "eq", value: "billing.modify" },
+        conditions: {
+          field: "action",
+          operator: "eq",
+          value: "billing.modify",
+        },
         effect: "REQUIRE_APPROVAL",
         riskLevel: "CRITICAL",
         requiredPermissions: [],
@@ -273,7 +315,9 @@ describe("evaluatePolicy — risk classification floor and policy-asserted raise
       registry,
       baseContext("agent.permission.modify"),
     );
-    const { rows } = await pool.query<{ risk_classification_version_id: string }>(
+    const { rows } = await pool.query<{
+      risk_classification_version_id: string;
+    }>(
       "select risk_classification_version_id from policy_evaluations where id = $1",
       [decision.id],
     );
@@ -323,30 +367,48 @@ describe("evaluatePolicy — tenant override restrictions (tier 4)", () => {
       },
     });
 
-    const decision = await evaluatePolicy(pool, policyCatalog, riskCatalog, registry, {
-      ...baseContext("workflow.override"),
-      tenantId: fixtures.tenantB,
-    });
+    const decision = await evaluatePolicy(
+      pool,
+      policyCatalog,
+      riskCatalog,
+      registry,
+      {
+        ...baseContext("workflow.override"),
+        tenantId: fixtures.tenantB,
+      },
+    );
     expect(decision.requiredApprovalCount).toBeGreaterThanOrEqual(3);
   });
 });
 
 describe("evaluatePolicy — workflow step approvalRequired floor (tier 5)", () => {
   it("raises an otherwise-ALLOW decision to REQUIRE_APPROVAL", async () => {
-    const decision = await evaluatePolicy(pool, policyCatalog, riskCatalog, registry, {
-      ...baseContext("agent.activate"),
-      workflowStepApprovalRequired: true,
-    });
+    const decision = await evaluatePolicy(
+      pool,
+      policyCatalog,
+      riskCatalog,
+      registry,
+      {
+        ...baseContext("agent.activate"),
+        workflowStepApprovalRequired: true,
+      },
+    );
     expect(decision.effect).toBe("REQUIRE_APPROVAL");
     expect(decision.requiredApprovalCount).toBeGreaterThanOrEqual(1);
   });
 
   it("does not downgrade an already-stricter effect", async () => {
     await seedUnconditionalPolicy("data.export", "ESCALATE", { priority: 1 });
-    const decision = await evaluatePolicy(pool, policyCatalog, riskCatalog, registry, {
-      ...baseContext("data.export"),
-      workflowStepApprovalRequired: true,
-    });
+    const decision = await evaluatePolicy(
+      pool,
+      policyCatalog,
+      riskCatalog,
+      registry,
+      {
+        ...baseContext("data.export"),
+        workflowStepApprovalRequired: true,
+      },
+    );
     // data.export already had a REQUIRE_APPROVAL policy from the determinism
     // test above; adding ESCALATE makes ESCALATE win regardless of the floor.
     expect(decision.effect).toBe("ESCALATE");
@@ -356,7 +418,13 @@ describe("evaluatePolicy — workflow step approvalRequired floor (tier 5)", () 
 describe("evaluatePolicy — rejects an unregistered action string", () => {
   it("throws for an action outside the closed catalog", async () => {
     await expect(
-      evaluatePolicy(pool, policyCatalog, riskCatalog, registry, baseContext("not.a.real.action")),
+      evaluatePolicy(
+        pool,
+        policyCatalog,
+        riskCatalog,
+        registry,
+        baseContext("not.a.real.action"),
+      ),
     ).rejects.toThrow();
   });
 });

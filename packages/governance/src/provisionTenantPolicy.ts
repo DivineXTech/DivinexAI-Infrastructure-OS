@@ -6,7 +6,10 @@ import {
   type PolicyOverrideDocument,
 } from "./policyDocument.js";
 import type { PlatformPolicyCatalog } from "./platformPolicyCatalog.js";
-import type { TenantPolicyAssignment, TenantPolicyOverride } from "./tenantPolicyRegistry.js";
+import type {
+  TenantPolicyAssignment,
+  TenantPolicyOverride,
+} from "./tenantPolicyRegistry.js";
 
 export interface ProvisionTenantPolicyInput {
   tenantId: string;

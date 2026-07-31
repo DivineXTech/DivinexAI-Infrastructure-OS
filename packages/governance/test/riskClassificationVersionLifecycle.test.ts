@@ -19,7 +19,9 @@ describe("RiskClassificationVersionStatus transitions", () => {
 
   it.each(validCases)("allows %s -> %s", (from, to) => {
     expect(isValidRiskClassificationVersionTransition(from, to)).toBe(true);
-    expect(() => assertValidRiskClassificationVersionTransition(from, to)).not.toThrow();
+    expect(() =>
+      assertValidRiskClassificationVersionTransition(from, to),
+    ).not.toThrow();
   });
 
   const invalidCases = [
@@ -30,14 +32,16 @@ describe("RiskClassificationVersionStatus transitions", () => {
 
   it.each(invalidCases)("rejects %s -> %s", (from, to) => {
     expect(isValidRiskClassificationVersionTransition(from, to)).toBe(false);
-    expect(() => assertValidRiskClassificationVersionTransition(from, to)).toThrow(
-      InvalidRiskClassificationVersionTransitionError,
-    );
+    expect(() =>
+      assertValidRiskClassificationVersionTransition(from, to),
+    ).toThrow(InvalidRiskClassificationVersionTransitionError);
   });
 
   it("retired is terminal", () => {
     for (const candidate of ALL_STATUSES) {
-      expect(isValidRiskClassificationVersionTransition("retired", candidate)).toBe(false);
+      expect(
+        isValidRiskClassificationVersionTransition("retired", candidate),
+      ).toBe(false);
     }
   });
 });

@@ -32,7 +32,10 @@ import { PgPlatformPolicyCatalog } from "../src/platformPolicyCatalog.js";
 import { PgPlatformRiskClassificationCatalog } from "../src/platformRiskClassificationCatalog.js";
 import { PgTenantPolicyRegistry } from "../src/tenantPolicyRegistry.js";
 import { evaluatePolicy } from "../src/evaluatePolicy.js";
-import { createApprovalRequest, type ActionSnapshot } from "../src/createApprovalRequest.js";
+import {
+  createApprovalRequest,
+  type ActionSnapshot,
+} from "../src/createApprovalRequest.js";
 import { recordApprovalDecision } from "../src/recordApprovalDecision.js";
 
 /**
@@ -63,7 +66,10 @@ const policyRegistry = new PgTenantPolicyRegistry(pool);
 let fixtures: CoreFixtures;
 
 const GOVERNED_ACTIONS_BY_STEP = new Map(
-  clientSolutionAssessmentManifestV1_1.steps.map((s) => [s.stepKey, s.governedAction]),
+  clientSolutionAssessmentManifestV1_1.steps.map((s) => [
+    s.stepKey,
+    s.governedAction,
+  ]),
 );
 
 beforeAll(async () => {
@@ -75,7 +81,9 @@ beforeAll(async () => {
     await Promise.all(
       CANONICAL_AGENT_MANIFESTS.map(async (m) => {
         const definition = await agentCatalog.getDefinitionBySlug(m.id);
-        const [version] = await agentCatalog.listPublishedVersions(definition!.id);
+        const [version] = await agentCatalog.listPublishedVersions(
+          definition!.id,
+        );
         return [m.id, version!.id] as const;
       }),
     ),
@@ -95,7 +103,12 @@ beforeAll(async () => {
   ]);
 
   await seedPlatformRiskClassificationCatalog(pool, [
-    { action: "*", version: "1.0.0", riskLevel: "LOW", rationale: "platform default floor" },
+    {
+      action: "*",
+      version: "1.0.0",
+      riskLevel: "LOW",
+      rationale: "platform default floor",
+    },
   ]);
 
   // Platform-mandatory: any external communication requires approval by
@@ -104,7 +117,8 @@ beforeAll(async () => {
     {
       slug: "external-communication-requires-approval",
       displayName: "External Communication Requires Approval",
-      description: "Any communication.send.external action requires human approval.",
+      description:
+        "Any communication.send.external action requires human approval.",
       version: "1.0.0",
       document: {
         appliesToActions: ["communication.send.external"],
@@ -137,7 +151,9 @@ describe("client_solution_assessment v1.1.0: full governed approval integration"
     const definition = await workflowCatalog.getDefinitionBySlug(
       "client_solution_assessment",
     );
-    const [version] = await workflowCatalog.listPublishedVersions(definition!.id);
+    const [version] = await workflowCatalog.listPublishedVersions(
+      definition!.id,
+    );
     expect(version!.version).toBe("1.1.0");
 
     const { installation: tenantWorkflow } = await provisionTenantWorkflow(
@@ -157,7 +173,10 @@ describe("client_solution_assessment v1.1.0: full governed approval integration"
       tenantWorkflowId: tenantWorkflow.id,
       workflowVersionId: version!.id,
       requestedByUserId: fixtures.userAOwner,
-      input: { clientName: "Acme Corp", clientBrief: "Expand into new markets" },
+      input: {
+        clientName: "Acme Corp",
+        clientBrief: "Expand into new markets",
+      },
       traceId: "trace-governed-reference-workflow",
     });
     await materializeSteps(
@@ -197,7 +216,8 @@ describe("client_solution_assessment v1.1.0: full governed approval integration"
         );
         assertAgentEligible(resolved.installation);
 
-        const governedAction = GOVERNED_ACTIONS_BY_STEP.get(step.step_key) ?? null;
+        const governedAction =
+          GOVERNED_ACTIONS_BY_STEP.get(step.step_key) ?? null;
         const result = await mockAdapter.execute(
           resolved,
           {
@@ -291,13 +311,14 @@ describe("client_solution_assessment v1.1.0: full governed approval integration"
 
     expect(parkedApprovalRequestId).not.toBeNull();
 
-    const { rows: runRowsBeforeApproval } = await pool.query<{ status: string }>(
-      "select status from workflow_runs where id = $1",
-      [run.id],
-    );
+    const { rows: runRowsBeforeApproval } = await pool.query<{
+      status: string;
+    }>("select status from workflow_runs where id = $1", [run.id]);
     expect(runRowsBeforeApproval[0]!.status).toBe("WAITING_FOR_APPROVAL");
 
-    const { rows: stepRowsBeforeApproval } = await pool.query<{ status: string }>(
+    const { rows: stepRowsBeforeApproval } = await pool.query<{
+      status: string;
+    }>(
       "select status from workflow_steps where workflow_run_id = $1 and step_key = 'deliver_external'",
       [run.id],
     );

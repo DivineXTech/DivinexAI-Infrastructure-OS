@@ -25,7 +25,9 @@ const TEST_DATABASE_URL_AUTHENTICATED =
   "postgres://authenticated:authenticated@127.0.0.1:5432/agentflow_test_governance";
 
 const ownerPool = new Pool({ connectionString: TEST_DATABASE_URL });
-const authPool = new Pool({ connectionString: TEST_DATABASE_URL_AUTHENTICATED });
+const authPool = new Pool({
+  connectionString: TEST_DATABASE_URL_AUTHENTICATED,
+});
 const riskCatalog = new PgPlatformRiskClassificationCatalog(ownerPool);
 const builder = new ApprovalFixtureBuilder(ownerPool);
 
@@ -82,7 +84,11 @@ beforeAll(async () => {
   );
   tenantARequestId = tenantARequest.id;
 
-  await assignApprover(tenantARequestId, fixtures.tenantA, fixtures.userADecider);
+  await assignApprover(
+    tenantARequestId,
+    fixtures.tenantA,
+    fixtures.userADecider,
+  );
 
   const tenantBRequest = await builder.createFullApprovalRequest(
     fixtures.tenantB,
@@ -188,10 +194,14 @@ describe("approval_requests: direct client mutation attempts (Decision 3)", () =
   });
 
   it("a user with no governance permission at all sees zero approval_requests rows", async () => {
-    const rows = await asUser(authPool, fixtures.userAMember, async (client) => {
-      const res = await client.query("select 1 from approval_requests");
-      return res.rows;
-    });
+    const rows = await asUser(
+      authPool,
+      fixtures.userAMember,
+      async (client) => {
+        const res = await client.query("select 1 from approval_requests");
+        return res.rows;
+      },
+    );
     expect(rows).toHaveLength(0);
   });
 });
@@ -215,18 +225,25 @@ describe("approval_decisions: direct client mutation attempts (Decision 3)", () 
        values ($1, $2, 'APPROVED', $3)`,
       [fixtures.tenantA, tenantARequestId, fixtures.userADecider],
     );
-    const updateResult = await asUser(authPool, fixtures.userADecider, async (client) =>
-      client.query(
-        "update approval_decisions set comment = 'tampered' where approval_request_id = $1",
-        [tenantARequestId],
-      ),
+    const updateResult = await asUser(
+      authPool,
+      fixtures.userADecider,
+      async (client) =>
+        client.query(
+          "update approval_decisions set comment = 'tampered' where approval_request_id = $1",
+          [tenantARequestId],
+        ),
     );
     expect(updateResult.rowCount).toBe(0);
 
-    const deleteResult = await asUser(authPool, fixtures.userADecider, async (client) =>
-      client.query("delete from approval_decisions where approval_request_id = $1", [
-        tenantARequestId,
-      ]),
+    const deleteResult = await asUser(
+      authPool,
+      fixtures.userADecider,
+      async (client) =>
+        client.query(
+          "delete from approval_decisions where approval_request_id = $1",
+          [tenantARequestId],
+        ),
     );
     expect(deleteResult.rowCount).toBe(0);
   });
@@ -235,7 +252,9 @@ describe("approval_decisions: direct client mutation attempts (Decision 3)", () 
 describe("tenant-owned governance tables: cross-tenant isolation", () => {
   it("a tenant A member sees only tenant A's policy_evaluations rows", async () => {
     const rows = await asUser(authPool, fixtures.userAOwner, async (client) => {
-      const res = await client.query("select tenant_id from policy_evaluations");
+      const res = await client.query(
+        "select tenant_id from policy_evaluations",
+      );
       return res.rows;
     });
     expect(rows.every((r) => r.tenant_id === fixtures.tenantA)).toBe(true);
@@ -272,7 +291,9 @@ describe("tenant-owned governance tables: cross-tenant isolation", () => {
   });
 
   it("rejects a policy_evaluations row whose tenant_id does not match its workflow_run's tenant_id", async () => {
-    const { workflowRunId } = await builder.materializeRunAndStep(fixtures.tenantA);
+    const { workflowRunId } = await builder.materializeRunAndStep(
+      fixtures.tenantA,
+    );
     await expect(
       ownerPool.query(
         `insert into policy_evaluations

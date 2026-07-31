@@ -213,9 +213,16 @@ export async function recordApprovalDecision(
     actorId: input.deciderUserId,
     traceId: updated.actionSnapshot.traceContext.traceId,
     correlationId: updated.actionSnapshot.traceContext.correlationId,
-    payload: { decision: input.decision, isNewDecision, status: updated.status },
+    payload: {
+      decision: input.decision,
+      isNewDecision,
+      status: updated.status,
+    },
   });
-  if (updated.status !== request.status && isTerminalApprovalRequestStatus(updated.status)) {
+  if (
+    updated.status !== request.status &&
+    isTerminalApprovalRequestStatus(updated.status)
+  ) {
     await appendGovernanceEvent(db, {
       tenantId: updated.tenantId,
       workflowRunId: updated.workflowRunId,

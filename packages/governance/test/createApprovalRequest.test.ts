@@ -43,9 +43,8 @@ describe("createApprovalRequest", () => {
   });
 
   it("idempotent creation: same payload hash on the same step returns the existing request unchanged", async () => {
-    const { workflowRunId, workflowStepId } = await builder.materializeRunAndStep(
-      fixtures.tenantA,
-    );
+    const { workflowRunId, workflowStepId } =
+      await builder.materializeRunAndStep(fixtures.tenantA);
     const policyEvaluationId = await builder.insertPolicyEvaluation({
       tenantId: fixtures.tenantA,
       workflowRunId,
@@ -91,9 +90,8 @@ describe("createApprovalRequest", () => {
   });
 
   it("supersession: a changed proposal supersedes the prior active request", async () => {
-    const { workflowRunId, workflowStepId } = await builder.materializeRunAndStep(
-      fixtures.tenantA,
-    );
+    const { workflowRunId, workflowStepId } =
+      await builder.materializeRunAndStep(fixtures.tenantA);
     const policyEvaluationId = await builder.insertPolicyEvaluation({
       tenantId: fixtures.tenantA,
       workflowRunId,
@@ -140,7 +138,10 @@ describe("createApprovalRequest", () => {
     expect(superseding.id).not.toBe(original.id);
     expect(superseding.status).toBe("PENDING");
 
-    const { rows } = await pool.query<{ status: string; superseded_by_request_id: string }>(
+    const { rows } = await pool.query<{
+      status: string;
+      superseded_by_request_id: string;
+    }>(
       "select status, superseded_by_request_id from approval_requests where id = $1",
       [original.id],
     );

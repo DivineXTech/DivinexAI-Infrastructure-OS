@@ -16,7 +16,9 @@ describe("GovernedActionSchema", () => {
   });
 
   it("rejects an arbitrary unregistered action string", () => {
-    expect(() => GovernedActionSchema.parse("restaurant-os.order.refund")).toThrow();
+    expect(() =>
+      GovernedActionSchema.parse("restaurant-os.order.refund"),
+    ).toThrow();
   });
 
   it("rejects the wildcard on the plain schema (wildcard is a separate, explicit union)", () => {
@@ -30,7 +32,9 @@ describe("GovernedActionOrWildcardSchema", () => {
   });
 
   it("accepts a real governed action", () => {
-    expect(() => GovernedActionOrWildcardSchema.parse("data.export")).not.toThrow();
+    expect(() =>
+      GovernedActionOrWildcardSchema.parse("data.export"),
+    ).not.toThrow();
   });
 
   it("rejects an unregistered action", () => {

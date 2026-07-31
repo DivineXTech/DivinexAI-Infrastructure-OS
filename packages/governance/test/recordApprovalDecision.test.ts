@@ -68,10 +68,12 @@ describe("recordApprovalDecision — single approval", () => {
     expect(updated.status).toBe("APPROVED");
     expect(updated.continuationCommitted).toBe(true);
 
-    const { rows: stepRows } = await pool.query<{ status: string; output: unknown }>(
-      "select status, output from workflow_steps where id = $1",
-      [request.workflowStepId],
-    );
+    const { rows: stepRows } = await pool.query<{
+      status: string;
+      output: unknown;
+    }>("select status, output from workflow_steps where id = $1", [
+      request.workflowStepId,
+    ]);
     expect(stepRows[0]!.status).toBe("SUCCEEDED");
     expect(stepRows[0]!.output).toEqual({ summary: "done" });
   });
@@ -154,10 +156,12 @@ describe("recordApprovalDecision — rejection behavior", () => {
     });
     expect(updated.status).toBe("REJECTED");
 
-    const { rows: stepRows } = await pool.query<{ status: string; error: { code: string } }>(
-      "select status, error from workflow_steps where id = $1",
-      [request.workflowStepId],
-    );
+    const { rows: stepRows } = await pool.query<{
+      status: string;
+      error: { code: string };
+    }>("select status, error from workflow_steps where id = $1", [
+      request.workflowStepId,
+    ]);
     expect(stepRows[0]!.status).toBe("FAILED");
     expect(stepRows[0]!.error.code).toBe("approval_rejected");
   });

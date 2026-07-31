@@ -22,7 +22,9 @@ function baseDocument(): PolicyDocument {
 
 describe("computePolicyHash", () => {
   it("is deterministic for identical content", () => {
-    expect(computePolicyHash(baseDocument())).toBe(computePolicyHash(baseDocument()));
+    expect(computePolicyHash(baseDocument())).toBe(
+      computePolicyHash(baseDocument()),
+    );
   });
 
   it("is insensitive to key order at every depth (mirrors platform-kernel's canonicalization)", () => {
@@ -43,17 +45,25 @@ describe("computePolicyHash", () => {
 
   it("changes when the document's content changes", () => {
     const changed: PolicyDocument = { ...baseDocument(), effect: "BLOCK" };
-    expect(computePolicyHash(changed)).not.toBe(computePolicyHash(baseDocument()));
+    expect(computePolicyHash(changed)).not.toBe(
+      computePolicyHash(baseDocument()),
+    );
   });
 });
 
 describe("computeRiskClassificationHash", () => {
   it("is deterministic and changes with content", () => {
-    const base = { action: "data.export", riskLevel: "HIGH" as const, rationale: "exports leave the tenant boundary" };
-    expect(computeRiskClassificationHash(base)).toBe(computeRiskClassificationHash({ ...base }));
-    expect(computeRiskClassificationHash({ ...base, riskLevel: "CRITICAL" })).not.toBe(
-      computeRiskClassificationHash(base),
+    const base = {
+      action: "data.export",
+      riskLevel: "HIGH" as const,
+      rationale: "exports leave the tenant boundary",
+    };
+    expect(computeRiskClassificationHash(base)).toBe(
+      computeRiskClassificationHash({ ...base }),
     );
+    expect(
+      computeRiskClassificationHash({ ...base, riskLevel: "CRITICAL" }),
+    ).not.toBe(computeRiskClassificationHash(base));
   });
 });
 

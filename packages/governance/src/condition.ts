@@ -20,20 +20,40 @@ export function resolveFieldPath(
   return current;
 }
 
-function compare(operator: string, actual: unknown, expected: unknown): boolean {
+function compare(
+  operator: string,
+  actual: unknown,
+  expected: unknown,
+): boolean {
   switch (operator) {
     case "eq":
       return actual === expected;
     case "neq":
       return actual !== expected;
     case "gt":
-      return typeof actual === "number" && typeof expected === "number" && actual > expected;
+      return (
+        typeof actual === "number" &&
+        typeof expected === "number" &&
+        actual > expected
+      );
     case "gte":
-      return typeof actual === "number" && typeof expected === "number" && actual >= expected;
+      return (
+        typeof actual === "number" &&
+        typeof expected === "number" &&
+        actual >= expected
+      );
     case "lt":
-      return typeof actual === "number" && typeof expected === "number" && actual < expected;
+      return (
+        typeof actual === "number" &&
+        typeof expected === "number" &&
+        actual < expected
+      );
     case "lte":
-      return typeof actual === "number" && typeof expected === "number" && actual <= expected;
+      return (
+        typeof actual === "number" &&
+        typeof expected === "number" &&
+        actual <= expected
+      );
     case "in":
       return Array.isArray(expected) && expected.includes(actual);
     case "not_in":

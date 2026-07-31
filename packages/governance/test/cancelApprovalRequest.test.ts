@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
-import { PgTenantAccessEvaluator, TenantAuthorizationError } from "@repo/shared";
+import {
+  PgTenantAccessEvaluator,
+  TenantAuthorizationError,
+} from "@repo/shared";
 import { resetAndMigrate } from "./setupTestDb.js";
 import { seedCoreFixtures, type CoreFixtures } from "./seedFixtures.js";
 import { seedPlatformRiskClassificationCatalog } from "../src/seedPlatformRiskClassificationCatalog.js";

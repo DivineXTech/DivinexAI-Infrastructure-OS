@@ -10,9 +10,7 @@ export const ConditionClauseSchema = z.object({
 export type ConditionClause = z.infer<typeof ConditionClauseSchema>;
 
 export type ConditionNode =
-  | ConditionClause
-  | { all: ConditionNode[] }
-  | { any: ConditionNode[] };
+  ConditionClause | { all: ConditionNode[] } | { any: ConditionNode[] };
 
 export const ConditionNodeSchema: z.ZodType<ConditionNode> = z.lazy(() =>
   z.union([

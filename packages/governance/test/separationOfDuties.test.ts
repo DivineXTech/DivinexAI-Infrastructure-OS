@@ -26,13 +26,19 @@ function baseSnapshot(overrides: Partial<ActionSnapshot> = {}): ActionSnapshot {
 describe("assertSeparationOfDuties", () => {
   it("allows a decider who is neither the requesting actor nor the requesting tenant agent", () => {
     expect(() =>
-      assertSeparationOfDuties(baseSnapshot(), { type: "user", id: "user-decider" }),
+      assertSeparationOfDuties(baseSnapshot(), {
+        type: "user",
+        id: "user-decider",
+      }),
     ).not.toThrow();
   });
 
   it("prohibits the requesting user from deciding their own request", () => {
     expect(() =>
-      assertSeparationOfDuties(baseSnapshot(), { type: "user", id: "user-requester" }),
+      assertSeparationOfDuties(baseSnapshot(), {
+        type: "user",
+        id: "user-requester",
+      }),
     ).toThrow(SelfApprovalProhibitedError);
   });
 

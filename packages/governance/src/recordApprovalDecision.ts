@@ -186,6 +186,13 @@ export async function recordApprovalDecision(
   // 8. WORKFLOW CONTINUATION OR TERMINAL HANDLING
   if (updated.status === "APPROVED" && request.status !== "APPROVED") {
     await resumeApprovedRequest(db, updated.id);
+    // resumeApprovedRequest flips continuation_committed on the row directly;
+    // re-fetch so the returned snapshot reflects it.
+    const { rows: refetched } = await db.query<Row>(
+      "select * from approval_requests where id = $1",
+      [updated.id],
+    );
+    updated = mapApprovalRequestRow(refetched[0]!);
   } else if (updated.status === "REJECTED" && request.status !== "REJECTED") {
     await rejectWorkflowStepApproval(db, updated.workflowStepId, {
       retryable: false,

@@ -1020,6 +1020,21 @@ approval workflow cannot complete correctly without it. Owned entirely by
 `workflow-engine`; `governance` only calls it with a `workflowRunId`,
 never derives run/step state itself.
 
+**Implementation-discovered sub-gap, resolved the same way:** nothing in
+Phase 3 ever moves a run's status *out of* `DRAFT` in the first place —
+`createWorkflowRun` inserts at `DRAFT` and no code path advances it, so
+every one of the transitions below (`VALIDATING`, `WAITING_FOR_APPROVAL`,
+etc.) would otherwise be structurally unreachable (`isValidWorkflowTransition`
+has no `DRAFT -> VALIDATING` entry). `reconcileWorkflowRunOutcome` closes
+this first, before evaluating the rest of the algorithm below: if a run has
+materialized steps and its status is still `DRAFT`/`PLANNING`/`QUEUED`, it
+walks the already-legal chain `DRAFT -> PLANNING -> QUEUED -> RUNNING` in
+the same call (each hop its own conditional `UPDATE` gated on the current
+status, appending a single `run.started` event only if any hop actually
+applied), then proceeds using the now-current status. No new transition
+was added to `status.ts` for this — the chain was already legal, just
+never driven by anything.
+
 ```ts
 export async function reconcileWorkflowRunOutcome(
   db: Queryable,

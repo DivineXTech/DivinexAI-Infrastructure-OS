@@ -64,16 +64,17 @@ confirmation before Phase 1 starts.
 │   │                                 # Framework (Next.js) not installed/pinned until this increment is approved.
 │   └── worker/                      # Durable execution process (Phase 3)
 ├── packages/
-│   ├── agent-runtime/               # BUILT: manifest.ts, executionContext.ts, executionResult.ts (Phase 1)
-│   │   ├── providers/                # Phase 5 — ModelProvider adapters
-│   │   │   ├── anthropic/
-│   │   │   ├── openai/
-│   │   │   ├── google-gemini/
-│   │   │   └── google-adk/          # Isolated adapter, feature-flagged, never imported outside this package
-│   │   └── routing/                  # Phase 5 — provider routing
+│   ├── agent-runtime/               # BUILT: manifest.ts, executionContext.ts, executionResult.ts (Phase 1-4)
+│   │   ├── src/model/                # Phase 5 (proposed) — Model Gateway: invokeModel, ModelProviderRegistry,
+│   │   │                              # ModelRoutingPolicy, platform/tenant catalogs (see PHASE_5_MODEL_TOOL_GATEWAYS.md §15)
+│   │   └── providers/                # Phase 5 (proposed) — one ModelProviderAdapter implementation per subfolder;
+│   │       ├── mock/                 #   ships now — deterministic, no network
+│   │       ├── anthropic/            #   documented seam only, not built (design doc §13/§19 item 4)
+│   │       └── google-adk/          # Isolated ADK adapter (ADR-0002), unrelated to the Model Gateway above
 │   ├── memory-engine/                # Phase 6 — ingestion, trust states, retrieval, provenance
-│   ├── tool-registry/                # Phase 5 — tool definitions, tenant connections, execution pipeline
-│   │   └── adapters/                 # gmail/, stripe/, whatsapp/, flutterwave/, paystack/, ... (mock-first)
+│   ├── tool-registry/                # Phase 5 (proposed) — tool contracts, catalog, tenant installations,
+│   │   │                              # execution pipeline (see PHASE_5_MODEL_TOOL_GATEWAYS.md)
+│   │   └── src/adapters/             # knowledgeSearch/repositoryInspect/documentGenerate/communicationPrepare (mock-first)
 │   ├── workflow-engine/              # BUILT: status.ts (Phase 1); persistence/engine is Phase 3
 │   ├── governance/                   # Phase 4 — policy engine + approvals
 │   ├── sara/                         # Phase 7 — executive intelligence, a consumer of the above, not a superuser
@@ -130,7 +131,17 @@ against "smallest coherent increment" (§XXII.6).
 
 ## 4. Provider abstraction
 
-Core interfaces (name and folder placement final in `packages/agent-runtime/`):
+**Superseded by `PHASE_5_MODEL_TOOL_GATEWAYS.md`** — the sketch below
+predates that design and used different interface names
+(`ModelProvider`/`AgentProvider`/`AgentToolResolver`/`AgentPolicyEvaluator`)
+than what was actually specified (`ModelProviderAdapter`/
+`ModelProviderRegistry`/`ModelRoutingPolicy`/`invokeModel`, with tool
+resolution and policy evaluation split across the new `tool-registry` and
+existing `governance` packages instead of one `AgentProvider` bundling
+everything). Kept here as historical context for the reasoning, not as
+the current interface list.
+
+Original core interfaces (name and folder placement final in `packages/agent-runtime/`):
 
 - `ModelProvider` — raw completion/chat interface per provider SDK.
 - `AgentProvider` — wraps a `ModelProvider` with AgentFlow Pro's own
@@ -292,9 +303,31 @@ Phase 0 and Phase 1 are complete and are not restarted or renumbered:
   not replaced. Reference workflow: `client_solution_assessment` v1.1.0
   (adds a `deliver_external` step gated on `communication.send.external`).
   See `FILE_CHANGE_PLAN.md` for tables/migrations/RLS/services.
-- **Phase 5 — Model and Tool Gateways.** Provider adapters (§4/§5 below),
-  tool registry and execution pipeline (§9 below, "Centralized Tool
-  Registry" in `GAP_ANALYSIS.md`).
+- **Phase 5 — Model and Tool Gateways.** Proposed, architecture gate —
+  see `PHASE_5_MODEL_TOOL_GATEWAYS.md` for the full design. A Model
+  Gateway inside `packages/agent-runtime` (`ModelProviderAdapter`,
+  `ModelProviderRegistry`, deterministic `ModelRoutingPolicy`,
+  `invokeModel`) with platform-owned `model_provider_definitions`/
+  `model_definitions`/`model_capability_definitions`/`model_pricing_versions`
+  (pricing immutable once published, mirrors Phase 4's versioning
+  discipline) and tenant-owned `tenant_model_provider_configurations`/
+  `tenant_model_policies`/`model_invocations`/`model_invocation_attempts`/
+  `model_usage_ledger`. A new `packages/tool-registry` package (platform-
+  owned `tool_definitions`/`tool_versions`/`tool_capability_definitions`;
+  tenant-owned `tenant_tools`/`tenant_tool_credentials`/`tool_invocations`/
+  `tool_invocation_attempts`/`tool_execution_events`, plus an additive
+  extension of Phase 2's `agent_tool_permissions`) that **reuses Phase 4's
+  `governance`/`workflow-engine` approval machinery verbatim** for any
+  governed tool call — no new approval-request schema. Every
+  credential-bearing and execution-record table is select-only for every
+  tenant role, the same Decision-3 lockdown Phase 4 established. A new,
+  narrow `packages/shared/src/credentials.ts` finalizes `ADR-0007`'s
+  deferred credential mechanism (`CredentialReference` +
+  `CredentialResolver`, environment-backed for now). Reference workflow:
+  `client_solution_assessment` v1.2.0. Required path enforced throughout:
+  a model may propose a tool call; it never executes one directly. Four
+  decisions await confirmation before implementation (`PHASE_5_MODEL_TOOL_GATEWAYS.md`
+  §19). See `FILE_CHANGE_PLAN.md` for tables/migrations/RLS/services.
 - **Phase 6 — Memory Engine.** §6 below (ingestion, trust states, retrieval).
 - **Phase 7 — Sara Executive Intelligence.**
 - **Phase 8 — Executive Agent Team.** Nova, Forge, Guardian, Reven, Pulse
@@ -359,5 +392,17 @@ how. Current open items, carried forward rather than newly discovered:
    decisions, resumption, cancellation) happens through governed
    application commands over the trusted connection. See
    `PHASE_4_GOVERNANCE_APPROVALS.md` §2, §7.
+9. **Phase 5 architecture gate — four decisions awaiting confirmation.**
+   (1) Extend Phase 2's `agent_tool_permissions` in place rather than add
+   a redundant new `agent_tool_grants` table; (2) model invocations are
+   governed by deterministic routing restrictions only, the full
+   approval-request workflow applies to the tool invocation a model
+   proposes, not the model call itself; (3) the new
+   `CredentialReference`/`CredentialResolver` abstraction lives in
+   `packages/shared`, since neither `agent-runtime` nor `tool-registry`
+   owns it more than the other; (4) no real model-provider adapter is
+   built in Phase 5 — the interface and folder seam are specified, one
+   mock provider ships. See `PHASE_5_MODEL_TOOL_GATEWAYS.md` §19 for full
+   reasoning on each.
 
 No other blocker is currently open.

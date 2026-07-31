@@ -1,259 +1,196 @@
-# File Change Plan — Phase 4: Governance, Policies, Risk Decisions, and Human Approvals
+# File Change Plan — Phase 5: Model Gateway and Tool Gateway
 
-**Status: Conditionally approved, revised, implementation proceeding.**
-This supersedes the Phase 3 content that previously occupied this file.
-Full design rationale lives in `PHASE_4_GOVERNANCE_APPROVALS.md`; this file
-is the file-change-plan excerpt of that document, revised for the four
-required refinements from review (versioned risk classifications,
-confirmed-additive contract extensions with compatibility tests, no
-client mutation of approval state at all, and run-level completion
-resolved in this phase).
+**Status: Proposed — architecture gate, not yet approved.** This
+supersedes the Phase 4 content that previously occupied this file. Full
+design rationale lives in `PHASE_5_MODEL_TOOL_GATEWAYS.md`; this file is
+the file-change-plan excerpt of that document. Four decisions are flagged
+for confirmation in that document's §19 — implementation does not start
+until they're resolved.
 
 ## Model, in one sentence
 
-A new `packages/governance` evaluates versioned, structured policy
-documents deterministically against a governed action and a versioned
-risk classification, producing one of five effects
-(`BLOCK > DENY > ESCALATE > REQUIRE_APPROVAL > ALLOW`); when the effect
-requires approval, it creates an immutable approval request bound to the
-exact proposed action, collects one or more authorized decisions under
-separation-of-duties and distinct-approver rules — entirely through
-governed application commands, never through a client-writable row — and
-tells `workflow-engine` to resume, reject, expire, or cancel the waiting
-step exactly once; `workflow-engine` then derives the run's own outcome
-from its steps' persisted state, closing the run-completion gap Phase 3
-left open.
+A new Model Gateway inside `packages/agent-runtime` deterministically
+routes every agent's model invocation to an eligible, budget-respecting
+provider/model (never a hard-coded binding), persists the request and
+every attempt independently, and validates structured output against a
+registered schema — while a new `packages/tool-registry` package resolves
+a versioned, tenant-installed, agent-granted tool, reuses Phase 4's
+`governance`/`workflow-engine` approval machinery verbatim when a tool
+declares a governed action, and executes the adapter with only the
+minimum typed input and a scoped, already-resolved credential — never the
+raw tenant/workflow context or a credential locator the adapter would
+have to resolve itself.
 
-## New package: `packages/governance`
+## New package: `packages/tool-registry`
 
-Package layout mirrors `workflow-engine`'s Phase 3 structure exactly (own
-`package.json`/`tsconfig.json`/`eslint.config.js`/`vitest.config.ts`,
-dependencies on `@repo/shared` and `@repo/platform-kernel`). **Correction:**
-`governance` does depend on `@repo/workflow-engine` — one-way, since
-`governance`'s orchestration calls `workflow-engine`'s approval-integration
-functions (§10) to move steps/runs through state; `workflow-engine` never
-imports `governance`. `governance` has **no** dependency on
-`@repo/agent-runtime` at all: `AgentExecutionResult`'s `intendedAction.action`
-is a plain `z.string().min(1)` at the `agent-runtime` layer (not a typed
-import of `governance`'s `GovernedActionSchema`), and `governance` validates
-it against its own action catalog only when it actually receives one as
-plain data from whatever calls `evaluatePolicy` (`apps/worker`) — the same
-"no compile-time dependency where a plain value suffices" discipline
-already used for `workflow-engine`'s `AgentResolver`. See
-`PHASE_4_GOVERNANCE_APPROVALS.md` §13 for the full file tree.
+Mirrors `governance`'s Phase 4 structure exactly (own
+`package.json`/`tsconfig.json`/`eslint.config.js`/`vitest.config.ts`).
+Depends on `@repo/shared` (credentials, §7 of the design doc),
+`@repo/platform-kernel`, `@repo/governance` (evaluatePolicy/
+createApprovalRequest — reused, not duplicated), and `@repo/workflow-engine`
+(enterWaitingForApproval/resumeWorkflowStepAfterApproval/
+reconcileWorkflowRunOutcome). No dependency on `@repo/agent-runtime`: a
+tool invocation's proposed action is a plain string/data payload, the same
+"no compile-time dependency where a plain value suffices" discipline used
+throughout this codebase. See `PHASE_5_MODEL_TOOL_GATEWAYS.md` §15 for the
+full file tree.
+
+## Extended package: `packages/agent-runtime`
+
+New `src/model/` subtree (Model Gateway) — additive only; nothing in
+`manifest.ts`/`executionContext.ts`/`executionResult.ts`/
+`mockAgentAdapter.ts` changes. The existing `AgentAdapter.execute`
+contract is unchanged; Model Gateway integration is an internal detail of
+how a (future) real or model-backed adapter produces its
+`AgentExecutionResult`, per `ADR-0015`.
 
 ## New/revised table definitions
 
-See `PHASE_4_GOVERNANCE_APPROVALS.md` §1 for full DDL. Summary:
+See `PHASE_5_MODEL_TOOL_GATEWAYS.md` §1/§5 for full DDL. Summary:
 
-**Platform-owned (no `tenant_id`), four tables:** `policy_definitions`,
-`policy_versions` (immutable once published, plus `priority`/`mandatory`/
-`override_policy` columns driving precedence), and — **revised per
-review** — `risk_classification_definitions` + `risk_classification_versions`
-replacing the originally-proposed mutable `risk_classifications` lookup:
-immutable once published, exactly mirroring `policy_versions`. Every
-`policy_evaluations` row now records the exact
-`risk_classification_version_id` consulted.
+**Model Gateway — platform-owned (no `tenant_id`), four tables:**
+`model_provider_definitions`, `model_definitions` (flat, version+hash-guarded
+— no separate `_versions` child table; a model's capability set is simple
+enough not to need the definition/version split agents/workflows/policies
+use), `model_capability_definitions`, `model_pricing_versions` (immutable
+once published, mirrors `policy_versions`).
 
-**Tenant-owned (`tenant_id NOT NULL` everywhere), seven tables:**
-`tenant_policy_assignments` (installation row, mirrors `tenant_agents`/
-`tenant_workflows`), `tenant_policy_overrides` (tenant-authored tightening
-deltas only — the schema has no field capable of loosening an effect or
-reducing a requirement, and can never lower a risk level below the
-resolved classification floor), `policy_evaluations` (append-only audit,
-no write policy at all), `approval_requests` (the durable gate, with a
-partial unique index guaranteeing exactly one active request per workflow
-step — **revised: read-only for every tenant role, no insert/update/delete
-policy whatsoever**), `approval_decisions` (append-only, distinct-approver-
-enforced via a unique constraint — **revised: also read-only, no write
-policy of any kind**), `approval_assignments` (who may decide),
-`governance_events` (append-only audit ledger, no sequence counter).
+**Model Gateway — tenant-owned, five tables:**
+`tenant_model_provider_configurations` (contains a `CredentialReference`,
+never a plaintext secret — **select-only, no client write policy at all**),
+`tenant_model_policies` (standard select-member/write-admin pair, no
+secrets), `model_invocations` (the logical, idempotency-keyed invocation —
+select-only), `model_invocation_attempts` (persisted independently per
+attempt — select-only), `model_usage_ledger` (append-only — select-only).
 
-All child tables use the established composite-foreign-key pattern for
-tenant consistency. `approval_requests` references `workflow_steps` the
-same one-way direction `workflow_dead_letters` already established in
-Phase 3 — **no migration touches `workflow_steps` itself.**
+**Tool Gateway — platform-owned (no `tenant_id`), three tables:**
+`tool_definitions`, `tool_versions` (manifest metadata only — real Zod
+schemas live in code, exactly like `AgentManifest`/`WorkflowManifest`;
+immutable once published), `tool_capability_definitions`.
+
+**Tool Gateway — tenant-owned, five tables plus one extended:**
+`tenant_tools` (pinned to explicit version, mirrors `tenant_workflows`),
+`tenant_tool_credentials` (`CredentialReference`, never plaintext —
+select-only), `tool_invocations` (composite-FK references into
+`governance.policy_evaluations`/`approval_requests` — **reuses Phase 4's
+approval tables, no new approval schema**; select-only), `tool_invocation_attempts`
+(select-only), `tool_execution_events` (sequence-locked, mirrors
+`workflow_execution_events`; select-only). **Extended, additive:**
+`agent_tool_permissions` (Phase 2) gains `tenant_tool_id` — becomes the
+brief's `AgentToolGrant` record rather than a new, redundant table
+(flagged for confirmation, design doc §19 item 1).
+
+All new child tables use the established composite-foreign-key pattern
+for tenant consistency. No migration touches `workflow_steps`,
+`workflow_runs`, `policy_evaluations`, or `approval_requests` themselves —
+Phase 5's tables reference them one-way, exactly the precedent
+`approval_requests` set toward `workflow_steps` in Phase 4.
 
 ## Revised/new interfaces
 
 ```ts
-// packages/governance/src/evaluatePolicy.ts
-export async function evaluatePolicy(
+// packages/agent-runtime/src/model/invokeModel.ts
+export async function invokeModel(
   db: Queryable,
-  context: PolicyEvaluationContext,
-): Promise<PolicyDecision>; // records risk_classification_version_id used
+  registry: ModelProviderRegistry,
+  routingPolicy: ModelRoutingPolicy,
+  request: ModelInvocationRequest,
+): Promise<ModelInvocationResult>;
 
-// packages/governance/src/createApprovalRequest.ts
-export async function createApprovalRequest(
-  db: Queryable,
-  input: CreateApprovalRequestInput,
-): Promise<{
-  request: ApprovalRequest;
-  created: boolean;
-  superseded: string | null;
-}>;
-
-// packages/governance/src/recordApprovalDecision.ts — the 9-step governed command (§7)
-export async function recordApprovalDecision(
+// packages/tool-registry/src/executeToolInvocation.ts — the 14-step governed sequence
+export async function executeToolInvocation(
   db: Queryable,
   access: TenantAccessEvaluator,
-  input: RecordApprovalDecisionInput,
-): Promise<ApprovalRequest>;
-
-// packages/governance/src/cancelApprovalRequest.ts — new: the governed cancellation command
-export async function cancelApprovalRequest(
-  db: Queryable,
-  access: TenantAccessEvaluator,
-  input: CancelApprovalRequestInput,
-): Promise<ApprovalRequest>;
-
-// packages/governance/src/resumeApprovedRequest.ts
-export async function resumeApprovedRequest(
-  db: Queryable,
-  approvalRequestId: string,
-): Promise<boolean>; // false = already resumed by someone else (exactly-once gate)
-
-// packages/governance/src/recovery.ts
-export async function reconcileGovernanceRuntime(
-  db: Queryable,
-): Promise<ReconcileGovernanceResult>;
+  request: ToolInvocationRequest,
+): Promise<ToolInvocationResult>;
 ```
 
-```ts
-// packages/workflow-engine/src/approvalIntegration.ts (new — workflow-engine owns these)
-export async function enterWaitingForApproval(
-  db: Queryable,
-  workflowStepId: string,
-): Promise<boolean>;
-export async function resumeWorkflowStepAfterApproval(
-  db: Queryable,
-  workflowStepId: string,
-  output: unknown,
-): Promise<boolean>;
-export async function rejectWorkflowStepApproval(
-  db: Queryable,
-  workflowStepId: string,
-  reason: StepError,
-): Promise<boolean>;
-export async function expireWorkflowStepApproval(
-  db: Queryable,
-  workflowStepId: string,
-): Promise<boolean>;
-export async function cancelWorkflowStepApproval(
-  db: Queryable,
-  workflowStepId: string,
-): Promise<boolean>;
+Neither function imports the other package's schema directly for
+decision-making — `tool-registry` calls `governance.evaluatePolicy`/
+`workflow-engine.enterWaitingForApproval` with already-resolved plain
+data, exactly as `governance` already does toward `workflow-engine` since
+Phase 4.
 
-// packages/workflow-engine/src/reconcileWorkflowRunOutcome.ts (new — §10a, resolves the Phase 3 gap)
-export async function reconcileWorkflowRunOutcome(
-  db: Queryable,
-  workflowRunId: string,
-): Promise<{ changed: boolean; outcome: WorkflowStatus | null }>;
-```
+## Contract extension (additive; compatibility test required)
 
-None of `workflow-engine`'s functions above import or query anything from
-`governance`'s schema — every parameter is a plain primitive, and
-`governance`'s orchestration functions are the callers that gather
-already-resolved data (§10 of the design doc). `reconcileWorkflowRunOutcome`
-derives run state purely from `workflow_steps`/`workflow_runs` — no
-governance-specific logic lives in `workflow-engine`, and no workflow-state
-derivation logic lives in `governance`.
-
-## Governed action catalog and policy documents
-
-`packages/governance/src/actionCatalog.ts` exports a closed
-`GovernedActionSchema` Zod enum (the 19 named actions), with a documented
-(unimplemented) extension contract for a future registry-backed validator
-once vertical-namespaced actions are needed (Phase 11) — see design doc
-§3a. `packages/governance/src/policyDocument.ts` exports the Zod schemas
-for `policy_document`/`override_document` content, including a small,
-pure, recursive condition language (`all`/`any`/comparison clauses) — no
-`eval`, no model call, fully deterministic (§3b–c) — and the corrected
-`EFFECT_PRECEDENCE = ["BLOCK", "DENY", "ESCALATE", "REQUIRE_APPROVAL", "ALLOW"]`
-ranking (§4a).
-
-## Contract extensions (confirmed additive; compatibility tests required)
-
-- `packages/agent-runtime/src/executionResult.ts`: `AgentExecutionResult`
-  gains `intendedAction`, `selfAssessedRiskLevel`, `requestedCapabilities`
-  — all additive with defaults, structured and typed (no unbounded
-  metadata bag), a backward-compatible extension of a runtime
-  (non-versioned) contract. A compatibility test parses a pre-Phase-4-shaped
-  payload and confirms the defaults fill in correctly (§9, §15).
 - `packages/workflow-engine/src/manifest.ts`: `WorkflowStepDefinitionSchema`
-  gains an optional `governedAction` field (`GovernedAction | "*" | null`,
-  default `null`). A compatibility test confirms a manifest without this
-  field still parses, and that the already-published `client_solution_assessment`
-  v1.0.0 row is read back unchanged (§12, §15) — the new, governed step
-  (`deliver_external`) ships only in a **new** v1.1.0 version, never as a
-  mutation of the published v1.0.0 row.
-- `packages/workflow-engine/src/status.ts`: **one additive transition**,
-  `WAITING_FOR_APPROVAL -> BLOCKED`, added to the existing run-level
-  transition table (§12a) — required to make Decision 4's "expire to
-  EXPIRED or BLOCKED per policy" reachable at all. No status added or
-  removed; every existing transition unchanged. Phase 4 only ever produces
-  `EXPIRED` in practice; `BLOCKED` is schema-supported for a future policy
-  field, documented rather than silently narrowed.
+  gains `toolCalls` (array, default `[]`) — a step declares which tools it
+  may invoke, mirroring `governedAction`'s Phase 4 precedent exactly. A
+  step with no `toolCalls` behaves identically to today. No change to
+  `status.ts`'s transition tables — tool-invocation waits reuse the
+  existing `WAITING_FOR_APPROVAL` step/run states verbatim, no new status
+  needed.
+
+## New package: `packages/shared` gains one file
+
+`packages/shared/src/credentials.ts` — `CredentialReference`,
+`CredentialResolver`, `EnvCredentialResolver`. Flagged for confirmation
+(design doc §19 item 3) since `packages/shared` does not grow by default;
+proposed here specifically because neither `agent-runtime` nor
+`tool-registry` owns credential resolution more than the other.
 
 ## Migrations
 
-- `supabase/migrations/<next-timestamp>_governance_policy_catalog.sql` —
-  the **four** platform tables (revised: adds
-  `risk_classification_definitions`/`risk_classification_versions` in
-  place of the single mutable `risk_classifications` table), RLS
-  read-only for `authenticated` scoped to `published` versions, no write
-  policy (service-role/owner-only).
-- `supabase/migrations/<next-timestamp+1>_tenant_governance_and_approvals.sql`
-  — the seven tenant tables, all indexes, RLS reusing
-  `is_tenant_member`/`tenant_has_permission`, insertion of the four new
-  permission keys (`tenant.view_approvals`, `tenant.decide_approvals`,
-  `tenant.manage_policies`, `tenant.view_governance_events`) into the
-  existing `permissions` catalog. **Revised per review:** `approval_requests`
-  and `approval_decisions` get **select-only** RLS — no insert, update, or
-  delete policy for either table, under any permission. All mutation
-  (creation, decisions, resumption, cancellation) happens exclusively
-  through `governance`'s application commands over the trusted
-  service-role/owner connection.
-- Matching rollback files under `supabase/migrations_rollback/`.
+- `supabase/migrations/<ts>_model_gateway_platform_catalog.sql` — the four
+  Model Gateway platform tables, RLS read-only for `authenticated` scoped
+  to `published` rows.
+- `supabase/migrations/<ts+1>_tenant_model_gateway.sql` — the five tenant
+  tables, two new permission keys (`tenant.manage_models`,
+  `tenant.view_model_usage`); `tenant_model_provider_configurations` gets
+  select-only RLS (credential-bearing).
+- `supabase/migrations/<ts+2>_tool_gateway_platform_catalog.sql` — the
+  three Tool Gateway platform tables.
+- `supabase/migrations/<ts+3>_tenant_tool_gateway.sql` — the five tenant
+  tables plus the additive `agent_tool_permissions.tenant_tool_id` column;
+  two new permission keys (`tenant.manage_tools`, `tenant.manage_credentials`);
+  `tenant_tool_credentials`/`tool_invocations`/`tool_invocation_attempts`/
+  `tool_execution_events` get select-only RLS.
+- Matching rollback files under `supabase/migrations_rollback/`, applied
+  in exact reverse order.
 
-Apply order: platform catalog, then tenant governance/approvals (tenant
-tables reference the platform tables, plus `approval_requests` references
-Phase 3's already-existing `workflow_steps`). Roll back in reverse. The
-`status.ts` transition-table addition is a code change, not a migration.
+Apply order: model platform catalog → tenant model gateway → tool
+platform catalog → tenant tool gateway (references
+`tenant_agents`/`workflow_runs`/`workflow_steps`/`policy_evaluations`/
+`approval_requests`, all already existing — no change to any of them).
 
 ## Complete RLS policy outline
 
-See `PHASE_4_GOVERNANCE_APPROVALS.md` §2 for the literal SQL for every
-table. Summary: platform tables read-only for any authenticated user (draft
-versions never visible); tenant configuration tables
-(`tenant_policy_assignments`, `tenant_policy_overrides`,
-`approval_assignments`) use the standard select-member/write-admin pair
-gated on `tenant.manage_policies`; **`approval_requests` and
-`approval_decisions` are select-only for holders of `tenant.view_approvals`
-or `tenant.decide_approvals` — no write policy of any kind**; the two
-append-only audit tables (`policy_evaluations`, `governance_events`) are
-select-only for `tenant.view_governance_events` holders, also with no
-write policy at all.
+See `PHASE_5_MODEL_TOOL_GATEWAYS.md` §2/§5b for the literal SQL. Summary:
+platform tables read-only for any authenticated user (draft/unpublished
+rows never visible); `tenant_model_policies`/`tenant_tools` use the
+standard select-member/write-admin pair; every table that carries a
+`CredentialReference` (`tenant_model_provider_configurations`,
+`tenant_tool_credentials`) and every execution-record table
+(`model_invocations`, `model_invocation_attempts`, `model_usage_ledger`,
+`tool_invocations`, `tool_invocation_attempts`, `tool_execution_events`)
+is **select-only for every tenant role — no insert/update/delete policy
+of any kind**. Mutation happens exclusively through governed application
+commands or the trusted worker connection, the exact Decision-3 pattern
+Phase 4 established for `approval_requests`/`approval_decisions`.
 
-## Tenant governance/approval test cases
+## Model/Tool Gateway test cases
 
-Against real local Postgres, restricted `authenticated` role, mirroring the
-exact pattern proven in Phases 2 and 3 — see
-`PHASE_4_GOVERNANCE_APPROVALS.md` §15 for the complete test matrix (this
-file does not duplicate it). Highlights specific to this phase's new
-concerns: separation-of-duties rejection, distinct-approver enforcement,
-quorum with `requiredApprovalCount > 1`, supersession on payload-hash
-change, exactly-once resume under concurrent recovery, **direct client
-mutation attempts against `approval_requests`/`approval_decisions`
-explicitly rejected**, **run auto-completion for every baseline behavior**
-(all-succeeded, hard failure, rejection, expiration, cancellation,
-concurrency safety, idempotent no-op), and the full reference-workflow
-approval integration through the new `deliver_external` step to
-`COMPLETED`.
+Against real local Postgres, restricted `authenticated` role, mirroring
+the exact pattern proven in Phases 2–4 — see
+`PHASE_5_MODEL_TOOL_GATEWAYS.md` §17 for the complete test matrix (not
+duplicated here). Highlights specific to this phase's new concerns:
+deterministic model routing and fallback-eligibility (a fallback model
+must have already passed every filter the primary selection did),
+budget-exceeded as an explicit result (never a silent downgrade),
+governance interception for a governed tool reusing Phase 4's
+`recordApprovalDecision` unmodified, credential-reference redaction
+(assert no persisted row/event/log ever contains a resolved secret
+value), the external-idempotency/uncertain-outcome path for an
+irreversible tool's timed-out attempt, direct client mutation attempts
+against every credential-bearing and execution-record table explicitly
+rejected, and the full reference-workflow integration
+(`client_solution_assessment` v1.2.0) through model invocation, tool
+invocations, and the existing governance gate to `COMPLETED`.
 
 ## Superseded
 
-The Phase 3 content previously in this file is superseded by this Phase 4
+The Phase 4 content previously in this file is superseded by this Phase 5
 revision for the purpose of "what does this file currently describe" — it
 remains accurate historical record in git history and
-`PHASE_3_WORKFLOW_RUNTIME.md`'s completion summary, not restated here.
+`PHASE_4_GOVERNANCE_APPROVALS.md`'s own file-tree/migration sections, not
+restated here.

@@ -1,0 +1,11 @@
+name: Ping Diagnostic
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "hello from a minimal workflow with no third-party actions"

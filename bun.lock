@@ -59,6 +59,26 @@
         "typescript-eslint": "^8.50.0",
       },
     },
+    "packages/governance": {
+      "name": "@repo/governance",
+      "version": "0.0.0",
+      "dependencies": {
+        "@repo/platform-kernel": "*",
+        "@repo/shared": "*",
+        "@repo/workflow-engine": "*",
+        "zod": "^3.24.1",
+      },
+      "devDependencies": {
+        "@repo/eslint-config": "*",
+        "@repo/typescript-config": "*",
+        "@types/node": "^22.10.5",
+        "@types/pg": "^8.11.10",
+        "eslint": "^9.39.1",
+        "pg": "^8.13.1",
+        "typescript": "5.9.2",
+        "vitest": "^2.1.8",
+      },
+    },
     "packages/platform-kernel": {
       "name": "@repo/platform-kernel",
       "version": "0.0.0",
@@ -194,6 +214,8 @@
     "@repo/agent-runtime": ["@repo/agent-runtime@workspace:packages/agent-runtime"],
 
     "@repo/eslint-config": ["@repo/eslint-config@workspace:packages/eslint-config"],
+
+    "@repo/governance": ["@repo/governance@workspace:packages/governance"],
 
     "@repo/platform-kernel": ["@repo/platform-kernel@workspace:packages/platform-kernel"],
 

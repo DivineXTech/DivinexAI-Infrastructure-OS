@@ -1,7 +1,7 @@
 # Phase 4 — Governance, Policies, Risk Decisions, and Human Approvals (Design)
 
-**Status: Conditionally approved, revised, implementation proceeding.** Four
-required refinements from review are incorporated in this revision:
+**Status: Implemented.** Four required refinements from review are
+incorporated in this revision:
 
 1. **Versioned risk classifications** — `risk_classifications` (a mutable
    lookup table) is replaced by `risk_classification_definitions` +

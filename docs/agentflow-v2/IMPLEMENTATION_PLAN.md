@@ -264,8 +264,8 @@ Phase 0 and Phase 1 are complete and are not restarted or renumbered:
   workflow: `client_solution_assessment` v1.0.0. See
   `FILE_CHANGE_PLAN.md` for tables/migrations/RLS/services.
 - **Phase 4 — Governance, Policies, Risk Decisions, and Human Approvals.**
-  Conditionally approved and revised; implementation proceeding — see
-  `PHASE_4_GOVERNANCE_APPROVALS.md` for the full design. New
+  Implemented — see `PHASE_4_GOVERNANCE_APPROVALS.md` for the full design.
+  New
   `packages/governance`: platform-owned `policy_definitions`/
   `policy_versions` + `risk_classification_definitions`/
   `risk_classification_versions` (both immutable once published, same

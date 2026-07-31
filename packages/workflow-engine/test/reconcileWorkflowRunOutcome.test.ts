@@ -181,6 +181,37 @@ describe("reconcileWorkflowRunOutcome", () => {
     expect(await runStatus(runId)).toBe("REJECTED");
   });
 
+  it("approval granted: a run parked at WAITING_FOR_APPROVAL reaches COMPLETED once its gating step resumes to SUCCEEDED", async () => {
+    const runId = await newMaterializedRun("trace-outcome-approved");
+    await setAllStepStatus(runId, "SUCCEEDED", [
+      "sara_interpret",
+      "nova_plan",
+      "pulse_market",
+      "reven_pricing",
+      "forge_technical",
+      "guardian_review",
+    ]);
+    await pool.query(
+      "update workflow_steps set status = 'WAITING_FOR_APPROVAL', updated_at = now() where workflow_run_id = $1 and step_key = 'sara_synthesize'",
+      [runId],
+    );
+    const parked = await reconcileWorkflowRunOutcome(pool, runId);
+    expect(parked.outcome).toBe("WAITING_FOR_APPROVAL");
+
+    // Mirrors what resumeWorkflowStepAfterApproval leaves behind: the
+    // gating step resumes to SUCCEEDED while the run is still sitting at
+    // WAITING_FOR_APPROVAL (no direct WAITING_FOR_APPROVAL -> VALIDATING
+    // transition exists — the run must hop back through RUNNING first).
+    await pool.query(
+      "update workflow_steps set status = 'SUCCEEDED', completed_at = now() where workflow_run_id = $1 and step_key = 'sara_synthesize'",
+      [runId],
+    );
+
+    const result = await reconcileWorkflowRunOutcome(pool, runId);
+    expect(result.outcome).toBe("COMPLETED");
+    expect(await runStatus(runId)).toBe("COMPLETED");
+  });
+
   it("approval expiration: run reaches EXPIRED", async () => {
     const runId = await newMaterializedRun("trace-outcome-expired");
     await setAllStepStatus(runId, "SUCCEEDED", [

@@ -149,7 +149,7 @@ export async function reconcileWorkflowRunOutcome(
     return { changed: false, outcome: null };
   }
 
-  const currentStatus = await advanceRunToRunning(db, run);
+  let currentStatus = await advanceRunToRunning(db, run);
 
   const rejectedStep = steps.find(
     (s) => s.status === "FAILED" && s.error?.code === "approval_rejected",
@@ -199,6 +199,28 @@ export async function reconcileWorkflowRunOutcome(
       );
     }
     return result;
+  }
+
+  // The step that had parked this run at WAITING_FOR_APPROVAL resolved
+  // successfully (resumed to SUCCEEDED) rather than through any of the
+  // reject/expire/cancel branches above — advance the run back to RUNNING
+  // first (an already-legal transition) so the completion/failure
+  // derivation below has a status it can legally transition from.
+  // WAITING_FOR_APPROVAL has no direct path to VALIDATING/FAILED.
+  if (
+    currentStatus === "WAITING_FOR_APPROVAL" &&
+    !steps.some((s) => s.status === "WAITING_FOR_APPROVAL")
+  ) {
+    const resumed = await transitionRun(
+      db,
+      run,
+      currentStatus,
+      "RUNNING",
+      "run.resumed",
+      false,
+    );
+    if (!resumed.changed) return resumed;
+    currentStatus = "RUNNING";
   }
 
   const anyHardFailure = steps.some(

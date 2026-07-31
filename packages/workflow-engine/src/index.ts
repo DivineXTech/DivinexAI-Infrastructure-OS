@@ -119,6 +119,17 @@ export { appendWorkflowExecutionEvent } from "./executionEvents.js";
 export type { ReconcileWorkflowRuntimeResult } from "./recovery.js";
 export { reconcileWorkflowRuntime } from "./recovery.js";
 
+export {
+  enterWaitingForApproval,
+  resumeWorkflowStepAfterApproval,
+  rejectWorkflowStepApproval,
+  expireWorkflowStepApproval,
+  cancelWorkflowStepApproval,
+} from "./approvalIntegration.js";
+
+export type { ReconcileWorkflowRunOutcomeResult } from "./reconcileWorkflowRunOutcome.js";
+export { reconcileWorkflowRunOutcome } from "./reconcileWorkflowRunOutcome.js";
+
 export type {
   GovernanceEvaluationContext,
   GovernanceEvaluationResult,
@@ -128,6 +139,7 @@ export { StaticGovernanceGate } from "./governanceGate.js";
 
 export {
   clientSolutionAssessmentManifest,
+  clientSolutionAssessmentManifestV1_1,
   type ClientSolutionAssessmentInput,
   type ClientSolutionAssessmentOutput,
 } from "./reference/clientSolutionAssessment.js";

@@ -12,6 +12,10 @@ import {
   CyclicWorkflowDependencyError,
 } from "../src/dag.js";
 import { createStubAgentResolver } from "./stubAgentResolver.js";
+import {
+  clientSolutionAssessmentManifest,
+  clientSolutionAssessmentManifestV1_1,
+} from "../src/reference/clientSolutionAssessment.js";
 
 function baseManifest(
   overrides: Partial<WorkflowManifest> = {},
@@ -194,6 +198,29 @@ describe("validateWorkflowManifest", () => {
     expect(validated.steps[0]!.governedAction).toBe(
       "communication.send.external",
     );
+  });
+
+  it("Phase 4 reference workflow: v1.1.0 adds deliver_external without mutating v1.0.0", async () => {
+    const resolver = createStubAgentResolver();
+    expect(clientSolutionAssessmentManifest.steps).toHaveLength(7);
+    expect(clientSolutionAssessmentManifestV1_1.steps).toHaveLength(8);
+
+    const validated = await validateWorkflowManifest(
+      clientSolutionAssessmentManifestV1_1,
+      resolver,
+    );
+    const deliverStep = validated.steps.find(
+      (s) => s.stepKey === "deliver_external",
+    );
+    expect(deliverStep?.governedAction).toBe("communication.send.external");
+    expect(deliverStep?.dependsOn).toEqual(["sara_synthesize"]);
+
+    // v1.0.0's own step array is untouched.
+    expect(
+      clientSolutionAssessmentManifest.steps.some(
+        (s) => s.stepKey === "deliver_external",
+      ),
+    ).toBe(false);
   });
 
   it("rejects a kind: capability step with an empty capability string", async () => {

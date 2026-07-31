@@ -106,3 +106,36 @@ export const clientSolutionAssessmentManifest: WorkflowManifest<
     },
   ],
 };
+
+/**
+ * Phase 4 (§12 of PHASE_4_GOVERNANCE_APPROVALS.md): a new workflow version,
+ * not a mutation of the published `1.0.0` above. Adds `deliver_external`,
+ * whose `governedAction: "communication.send.external"` is expected to
+ * evaluate to `REQUIRE_APPROVAL` under the platform's mandatory default
+ * policy set — the workflow durably parks at `WAITING_FOR_APPROVAL` on this
+ * step until a governance decision resumes it exactly once. No real
+ * external communication is sent; Phase 4 stays mock-only here.
+ */
+export const clientSolutionAssessmentManifestV1_1: WorkflowManifest<
+  ClientSolutionAssessmentInput,
+  ClientSolutionAssessmentOutput
+> = {
+  id: "client_solution_assessment",
+  version: "1.1.0",
+  displayName: "Client Solution Assessment",
+  description:
+    "Interprets a client brief, plans a cross-functional assessment across market, pricing, and technical feasibility, reviews it for governance, synthesizes a recommendation, and delivers it to the client pending governed approval.",
+  inputSchema,
+  outputSchema,
+  steps: [
+    ...clientSolutionAssessmentManifest.steps,
+    {
+      stepKey: "deliver_external",
+      assignment: { kind: "agentSlug", agentSlug: "sara" },
+      dependsOn: ["sara_synthesize"],
+      approvalRequired: false,
+      retryPolicy: DEFAULT_RETRY_POLICY,
+      governedAction: "communication.send.external",
+    },
+  ],
+};

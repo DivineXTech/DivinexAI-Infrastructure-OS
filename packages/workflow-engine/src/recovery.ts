@@ -4,11 +4,14 @@ import { classifyOutcome } from "./retryPolicy.js";
 import type { WorkflowManifestMetadata } from "./manifest.js";
 import { appendWorkflowExecutionEvent } from "./executionEvents.js";
 import { computeReadySteps } from "./stepScheduler.js";
+import { reconcileWorkflowRunOutcome } from "./reconcileWorkflowRunOutcome.js";
 
 export interface ReconcileWorkflowRuntimeResult {
   leasesReclaimed: number;
   retriesRequeued: number;
   stepsReadied: string[];
+  /** Run IDs whose status `reconcileWorkflowRunOutcome` actually changed this tick (§10a). */
+  runsReconciled: string[];
 }
 
 /**
@@ -137,14 +140,21 @@ export async function reconcileWorkflowRuntime(
     [...TERMINAL_WORKFLOW_STATUSES],
   );
 
+  // 4. Derive run-level outcome for every non-terminal run (§10a) — closes
+  // the "runs never auto-complete" gap generally, not only for
+  // governance-gated workflows.
   const stepsReadied: string[] = [];
+  const runsReconciled: string[] = [];
   for (const run of activeRuns) {
     stepsReadied.push(...(await computeReadySteps(db, run.id)));
+    const outcome = await reconcileWorkflowRunOutcome(db, run.id);
+    if (outcome.changed) runsReconciled.push(run.id);
   }
 
   return {
     leasesReclaimed: expiredSteps.length,
     retriesRequeued: requeued.length,
     stepsReadied,
+    runsReconciled,
   };
 }

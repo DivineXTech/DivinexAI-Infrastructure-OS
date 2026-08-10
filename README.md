@@ -25,20 +25,49 @@ rendering of it at `/`.
 - React Flow for the visual workflow designer
 - Supabase — Postgres, Auth, Storage, Realtime, and RLS
 - Inngest for durable execution
-- Anthropic Claude through a provider adapter
+- Anthropic Claude for idea generation, scripts, and scene plans
+- ElevenLabs (Multilingual v2) for narration
 - Remotion + FFmpeg for composition
-- Pluggable video, voice, music, storage, and publishing providers
+- Pluggable, vendor-neutral video, music, storage, and publishing providers
+  behind a generic HTTP contract (`src/providers/http/client.ts`)
 
 ## Getting started
 
 ```bash
-cp .env.example .env.local   # fill in Anthropic, Supabase, and provider keys
+cp .env.example .env.local   # every credential is optional — see Simulation Mode below
 npm install
 npm run dev                  # app at http://localhost:3000
 ```
 
-Apply the database schema in `supabase/migrations/0001_init.sql` to your
-Supabase project before running the pipeline.
+Apply the database schema in `supabase/migrations/0001_init.sql` and
+`0002_phase2.sql` (in order) to your Supabase project before running the
+pipeline.
+
+Visit `/providers` (or `GET /api/providers/status`) for live status of every
+capability — Anthropic, ElevenLabs, video/music/publishing vendors,
+Supabase Storage, and the Remotion/ffmpeg composition pipeline — without
+ever exposing a secret value.
+
+### Simulation Mode
+
+Every provider credential is optional. Any capability left unconfigured
+runs against a deterministic mock instead of failing, and is always
+labeled — in the API response, the `/providers` screen, and every artifact
+it produces — as simulated. Simulated media is a self-describing JSON
+placeholder, never a fake binary passed off as real output. Configure
+`ANTHROPIC_API_KEY` and `ELEVENLABS_API_KEY`/`ELEVENLABS_VOICE_ID` to
+replace the idea/script and narration mocks with real ones; video, music,
+and publishing stay vendor-neutral behind the generic HTTP adapter in
+`src/providers/http/client.ts` until you point them at a real vendor.
+
+### Testing
+
+```bash
+npm run typecheck
+npm run lint
+npm run test        # vitest — unit, integration, and Inngest-function tests
+npm run build
+```
 
 To extend this project with Claude Code, paste
 [`CLAUDE_CODE_MASTER_PROMPT.md`](./CLAUDE_CODE_MASTER_PROMPT.md) into a

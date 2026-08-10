@@ -13,6 +13,8 @@ export const audioJobSchema = z.object({
   status: audioJobStatusSchema,
   kind: z.enum(["voiceover", "music"]),
   assetUrl: z.string().url().optional(),
+  costUsd: z.number().nonnegative().default(0),
+  simulated: z.boolean().default(false),
   error: z.string().optional(),
 });
 

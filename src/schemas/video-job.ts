@@ -13,6 +13,8 @@ export const videoJobSchema = z.object({
   status: videoJobStatusSchema,
   sceneOrder: z.number().int().nonnegative(),
   assetUrl: z.string().url().optional(),
+  costUsd: z.number().nonnegative().default(0),
+  simulated: z.boolean().default(false),
   error: z.string().optional(),
 });
 

@@ -7,16 +7,18 @@
  * output is schema-validated" production requirement.
  */
 
+import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import type { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { getEnv } from "@/src/env";
 import type { SchemaValidationResult } from "@/src/types/contract";
 
 let client: Anthropic | null = null;
 
 function getClient(): Anthropic {
   if (!client) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = getEnv().ANTHROPIC_API_KEY;
     if (!apiKey) {
       throw new Error("ANTHROPIC_API_KEY is not set");
     }
@@ -46,7 +48,7 @@ export async function generateStructured<Schema extends z.ZodTypeAny>(
   const anthropic = getClient();
 
   const response = await anthropic.messages.create({
-    model: input.model ?? "claude-sonnet-4-5",
+    model: input.model ?? getEnv().ANTHROPIC_MODEL,
     max_tokens: input.maxTokens ?? 4096,
     system: input.system,
     messages: [{ role: "user", content: input.prompt }],

@@ -13,10 +13,12 @@ import {
   declareRights,
   generateAiContent,
   getCreatorBalance,
+  getOrderLedgerEntries,
   grantAiCredits,
   publishAsset,
   purchaseProduct,
   recordVoiceConsent,
+  refundOrder,
   registerFan,
   requestPayout,
   signUpCreator,
@@ -45,6 +47,60 @@ describeIfDb("DMTV v1 primary end-to-end acceptance lifecycle", () => {
   afterAll(async () => {
     await pool.end();
   });
+
+  /** Shared setup for the idempotency/refund tests: a creator with one published, purchasable track. */
+  async function setUpPublishedTrackWithProduct(priceMinorUnits: number, label: string) {
+    const signUp = await signUpCreator(pool, events, {
+      organizationName: `${label} Co ${Date.now()}`,
+      displayName: label,
+    });
+    await grantAiCredits(pool, signUp.organization.id, 100);
+    const musicGeneration = await generateAiContent(pool, gateway, events, {
+      organizationId: signUp.organization.id,
+      workspaceId: signUp.workspace.id,
+      creatorId: signUp.creatorProfile.id,
+      actingUserId: signUp.userId,
+      capability: "TEXT_TO_MUSIC",
+      prompt: "test track",
+    });
+    const asset = await createAssetFromGeneration(pool, {
+      organizationId: signUp.organization.id,
+      workspaceId: signUp.workspace.id,
+      creatorId: signUp.creatorProfile.id,
+      actingUserId: signUp.userId,
+      title: `${label} Track`,
+      assetType: "MUSIC_TRACK",
+      musicGeneration,
+    });
+    await declareRights(pool, {
+      organizationId: signUp.organization.id,
+      assetId: asset.id,
+      actingUserId: signUp.userId,
+      contributors: [{ userId: signUp.userId, displayName: label, role: "PRIMARY_ARTIST", revenueSplitBps: 10_000 }],
+      rightsDeclarations: [
+        { rightsType: "MASTER", ownerUserId: signUp.userId, ownershipPct: 100 },
+        { rightsType: "PUBLISHING", ownerUserId: signUp.userId, ownershipPct: 100 },
+      ],
+    });
+    await publishAsset(pool, events, {
+      organizationId: signUp.organization.id,
+      assetId: asset.id,
+      actingUserId: signUp.userId,
+      commercialUseAuthorized: true,
+    });
+    const fan = await registerFan(pool, events, signUp.organization.id, `${label} Fan`);
+    const product = await createProduct(pool, {
+      organizationId: signUp.organization.id,
+      workspaceId: signUp.workspace.id,
+      creatorId: signUp.creatorProfile.id,
+      actingUserId: signUp.userId,
+      assetId: asset.id,
+      type: "DIGITAL_DOWNLOAD",
+      name: `${label} Track (Digital Download)`,
+      price: { amountMinorUnits: priceMinorUnits, currency: "USD" },
+    });
+    return { signUp, asset, fan, product };
+  }
 
   test(
     "creator signup -> onboarding -> AI generation -> rights -> publish -> fan -> purchase -> fee -> split -> ledger -> balance -> payout",
@@ -298,5 +354,84 @@ describeIfDb("DMTV v1 primary end-to-end acceptance lifecycle", () => {
       voiceSubjectUserId: singer,
     });
     expect(result.outputStoragePath).toMatch(/^mock:\/\//);
+  });
+
+  test("purchaseProduct is idempotent: replaying the same idempotency key never duplicates revenue or ledger entries", async () => {
+    const { signUp, fan, product } = await setUpPublishedTrackWithProduct(499, "Idempotent Artist");
+    const idempotencyKey = `purchase:${product.id}:${fan.fanUserId}:once`;
+    const purchaseInput = {
+      organizationId: signUp.organization.id,
+      workspaceId: signUp.workspace.id,
+      productId: product.id,
+      fanId: fan.fanUserId,
+      fanDisplayName: fan.displayName,
+      idempotencyKey,
+    };
+
+    const first = await purchaseProduct(pool, { flowraPay, feeScheduleSource, events }, purchaseInput);
+    // Same provider event / retried request, processed a second time.
+    const second = await purchaseProduct(pool, { flowraPay, feeScheduleSource, events }, purchaseInput);
+    const third = await purchaseProduct(pool, { flowraPay, feeScheduleSource, events }, purchaseInput);
+
+    expect(second.order.id).toBe(first.order.id);
+    expect(third.order.id).toBe(first.order.id);
+    expect(second.ledgerEntries.map((e) => e.id).sort()).toEqual(first.ledgerEntries.map((e) => e.id).sort());
+    expect(third.ledgerEntries.map((e) => e.id).sort()).toEqual(first.ledgerEntries.map((e) => e.id).sort());
+
+    // Only one sale's worth of ledger entries exist for this order, however many times it was "processed".
+    const allEntriesForOrder = await getOrderLedgerEntries(pool, first.order.id);
+    expect(allEntriesForOrder).toHaveLength(first.ledgerEntries.length);
+
+    // Only one sale's worth of revenue landed on the creator's balance -- not two, not three.
+    const balance = await getCreatorBalance(pool, signUp.organization.id, signUp.creatorProfile.id);
+    expect(balance.amountMinorUnits).toBe(450); // $4.99 gross @ FREE tier 10% -> $4.50 net, once.
+  });
+
+  test("refundOrder reverses a completed purchase via compensating entries, never mutates the originals, restores the creator's balance, and is itself idempotent", async () => {
+    const { signUp, fan, product } = await setUpPublishedTrackWithProduct(1_000, "Refund Artist");
+    const purchase = await purchaseProduct(
+      pool,
+      { flowraPay, feeScheduleSource, events },
+      {
+        organizationId: signUp.organization.id,
+        workspaceId: signUp.workspace.id,
+        productId: product.id,
+        fanId: fan.fanUserId,
+        fanDisplayName: fan.displayName,
+        idempotencyKey: `purchase:${product.id}:${fan.fanUserId}`,
+      },
+    );
+
+    const balanceBeforeRefund = await getCreatorBalance(pool, signUp.organization.id, signUp.creatorProfile.id);
+    expect(balanceBeforeRefund.amountMinorUnits).toBe(900); // $10.00 gross @ 10% -> $9.00 net
+
+    const refund = await refundOrder(pool, events, {
+      organizationId: signUp.organization.id,
+      orderId: purchase.order.id,
+    });
+    expect(refund.order.status).toBe("REFUNDED");
+    expect(refund.compensatingEntries.every((e) => e.entryType === "COMPENSATING")).toBe(true);
+    expect(refund.compensatingEntries).toHaveLength(purchase.ledgerEntries.length);
+
+    // The original sale entries are byte-for-byte untouched: still there, unmodified, alongside the new reversal entries.
+    const allEntriesAfterRefund = await getOrderLedgerEntries(pool, purchase.order.id);
+    const originalsAfterRefund = allEntriesAfterRefund.filter((e) => e.entryType !== "COMPENSATING");
+    expect(originalsAfterRefund).toEqual(purchase.ledgerEntries);
+
+    // The reversal exactly cancels the original: creator balance is back to zero.
+    const balanceAfterRefund = await getCreatorBalance(pool, signUp.organization.id, signUp.creatorProfile.id);
+    expect(balanceAfterRefund.amountMinorUnits).toBe(0);
+
+    // Refunding an already-refunded order is idempotent: no new compensating entries, no further balance change.
+    const secondRefund = await refundOrder(pool, events, {
+      organizationId: signUp.organization.id,
+      orderId: purchase.order.id,
+    });
+    expect(secondRefund.order.status).toBe("REFUNDED");
+    expect(secondRefund.compensatingEntries.map((e) => e.id).sort()).toEqual(
+      refund.compensatingEntries.map((e) => e.id).sort(),
+    );
+    const balanceAfterSecondRefund = await getCreatorBalance(pool, signUp.organization.id, signUp.creatorProfile.id);
+    expect(balanceAfterSecondRefund.amountMinorUnits).toBe(0);
   });
 });

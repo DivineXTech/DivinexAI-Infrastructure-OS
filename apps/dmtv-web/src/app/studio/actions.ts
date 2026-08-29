@@ -8,6 +8,7 @@ import {
   generateAiContent,
   publishAsset,
 } from "@divinexai/dmtv-core";
+import { parseDecimalToMinorUnits } from "@divinexai/schemas";
 import { getDmtvContext } from "@/lib/server-context";
 import { getCreatorSession } from "@/lib/session";
 
@@ -90,9 +91,16 @@ export async function createProductAction(formData: FormData): Promise<void> {
 
   const assetId = String(formData.get("assetId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
-  const priceDollars = Number(formData.get("priceDollars") ?? 0);
-  if (!assetId || !name || !(priceDollars > 0)) {
+  const priceDollarsInput = String(formData.get("priceDollars") ?? "").trim();
+  if (!assetId || !name || !priceDollarsInput) {
     throw new Error("Asset, product name, and a positive price are required.");
+  }
+  // Parsed via string/BigInt math (never `Number(input) * 100`) so a
+  // user-typed dollar amount can't pick up binary floating-point error on
+  // its way to becoming the stored integer minor-unit price.
+  const priceMinorUnits = parseDecimalToMinorUnits(priceDollarsInput);
+  if (priceMinorUnits <= 0) {
+    throw new Error("Price must be positive.");
   }
 
   const { pool } = getDmtvContext();
@@ -104,7 +112,7 @@ export async function createProductAction(formData: FormData): Promise<void> {
     assetId,
     type: "DIGITAL_DOWNLOAD",
     name,
-    price: { amountMinorUnits: Math.round(priceDollars * 100), currency: "USD" },
+    price: { amountMinorUnits: priceMinorUnits, currency: "USD" },
   });
 
   redirect(`/studio?assetId=${assetId}&step=done`);

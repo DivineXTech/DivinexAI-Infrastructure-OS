@@ -1,5 +1,6 @@
 import type { Pool } from "pg";
 import { withAnonContext, withServiceRoleContext, withUserContext } from "@divinexai/db";
+import { floorBpsOf } from "@divinexai/schemas";
 import type {
   AiCapability,
   AiProvenanceRecord,
@@ -20,7 +21,12 @@ import type {
 import type { AiProviderGateway } from "@divinexai/ai-gateway";
 import { validateAssetReadyForPublication } from "@divinexai/rights";
 import { calculateFeeSplit, resolvePlatformFeeBps, type FeeScheduleSource } from "@divinexai/fees";
-import { buildPayoutLedgerEntries, buildSaleLedgerEntries, computeAccountBalance } from "@divinexai/ledger";
+import {
+  buildCompensatingEntries,
+  buildPayoutLedgerEntries,
+  buildSaleLedgerEntries,
+  computeAccountBalance,
+} from "@divinexai/ledger";
 import type { FlowraPayClient } from "@divinexai/flowrapay-adapter";
 import type { DomainEventEmitter } from "@divinexai/events";
 import { handlify, randomUUID, slugify } from "./ids";
@@ -30,6 +36,10 @@ import {
   getAsset,
   getCreatorProfile,
   getLedgerEntriesForAccount,
+  getLedgerEntriesForOrder,
+  getMembershipForFanAndProduct,
+  getOrder,
+  getOrderByIdempotencyKey,
   getOrganization,
   getProduct,
   getPublicCreatorProfileByHandle,
@@ -59,6 +69,7 @@ import {
   publishAssetRow,
   settlePayout,
   updateCreatorOnboarding,
+  updateOrderStatus,
 } from "./repo";
 
 export interface SignUpCreatorInput {
@@ -400,21 +411,41 @@ export interface PurchaseProductResult {
  * config-driven platform fee, and records a balanced ledger transaction --
  * all as one service-role-mediated operation, since orders/ledger rows have
  * no authenticated write policy at all.
+ *
+ * Idempotent on `input.idempotencyKey`: if an order with this key already
+ * exists (e.g. a retried request, or the same provider event delivered
+ * twice), the fan is never re-charged and no new order or ledger rows are
+ * written -- the original result is simply replayed.
  */
 export async function purchaseProduct(
   pool: Pool,
   deps: { flowraPay: FlowraPayClient; feeScheduleSource: FeeScheduleSource; events: DomainEventEmitter },
   input: PurchaseProductInput,
 ): Promise<PurchaseProductResult> {
-  const { product, organization, creatorUserId, contributors } = await withServiceRoleContext(pool, async (client) => {
-    const product = await getProduct(client, input.productId);
-    const organization = await getOrganization(client, input.organizationId);
-    const creatorProfile = await getCreatorProfile(client, product.creatorId);
-    const contributors = product.assetId ? await listContributors(client, product.assetId) : [];
-    return { product, organization, creatorUserId: creatorProfile.userId, contributors };
-  });
+  const { product, organization, creatorUserId, contributors, existingOrder } = await withServiceRoleContext(
+    pool,
+    async (client) => {
+      const product = await getProduct(client, input.productId);
+      const organization = await getOrganization(client, input.organizationId);
+      const creatorProfile = await getCreatorProfile(client, product.creatorId);
+      const contributors = product.assetId ? await listContributors(client, product.assetId) : [];
+      const existingOrder = await getOrderByIdempotencyKey(client, input.organizationId, input.idempotencyKey);
+      return { product, organization, creatorUserId: creatorProfile.userId, contributors, existingOrder };
+    },
+  );
 
   const platformFeeBps = await resolvePlatformFeeBps(organization.planTier, organization.id, deps.feeScheduleSource);
+
+  if (existingOrder) {
+    const [ledgerEntries, membership] = await withServiceRoleContext(pool, async (client) => [
+      await getLedgerEntriesForOrder(client, existingOrder.id),
+      product.type === "MEMBERSHIP"
+        ? await getMembershipForFanAndProduct(client, { productId: product.id, fanId: input.fanId })
+        : null,
+    ]);
+    return { order: existingOrder, ledgerEntries, membership, platformFeeBps };
+  }
+
   const feeSplit = calculateFeeSplit(product.price, platformFeeBps);
 
   const charge = await deps.flowraPay.chargeFan({
@@ -430,7 +461,7 @@ export async function purchaseProduct(
     .filter((c) => c.userId && c.userId !== creatorUserId)
     .map((c) => ({
       accountRefId: c.userId!,
-      amountMinorUnits: Math.floor((feeSplit.creatorNetAmount.amountMinorUnits * c.revenueSplitBps) / 10_000),
+      amountMinorUnits: floorBpsOf(feeSplit.creatorNetAmount.amountMinorUnits, c.revenueSplitBps),
     }));
 
   const { order, ledgerEntries, membership } = await withServiceRoleContext(pool, async (client) => {
@@ -492,11 +523,75 @@ export async function purchaseProduct(
   return { order, ledgerEntries, membership, platformFeeBps };
 }
 
+export interface RefundOrderInput {
+  organizationId: string;
+  orderId: string;
+}
+
+export interface RefundOrderResult {
+  order: Order;
+  compensatingEntries: LedgerEntry[];
+}
+
+/**
+ * Refunds a COMPLETED order: reverses its original ledger entries with
+ * compensating entries and moves the order to REFUNDED. The original sale
+ * entries are never mutated or deleted -- this is the only way a
+ * completed financial record is ever corrected (see @divinexai/ledger's
+ * buildCompensatingEntries). Idempotent: refunding an already-REFUNDED
+ * order replays the existing compensating entries instead of reversing a
+ * second time.
+ */
+export async function refundOrder(
+  pool: Pool,
+  events: DomainEventEmitter,
+  input: RefundOrderInput,
+): Promise<RefundOrderResult> {
+  const { order, originalEntries } = await withServiceRoleContext(pool, async (client) => {
+    const order = await getOrder(client, input.orderId);
+    const originalEntries = await getLedgerEntriesForOrder(client, input.orderId);
+    return { order, originalEntries };
+  });
+
+  if (order.status === "REFUNDED") {
+    return {
+      order,
+      compensatingEntries: originalEntries.filter((e) => e.entryType === "COMPENSATING"),
+    };
+  }
+  if (order.status !== "COMPLETED") {
+    throw new Error(`Order ${input.orderId} cannot be refunded from status ${order.status}.`);
+  }
+
+  const transactionId = randomUUID();
+  const idempotencyKey = `refund:${input.orderId}`;
+  const reversalEntries = buildCompensatingEntries(originalEntries, transactionId, idempotencyKey);
+
+  const { updatedOrder, compensatingEntries } = await withServiceRoleContext(pool, async (client) => {
+    const compensatingEntries = await insertLedgerEntries(client, reversalEntries);
+    const updatedOrder = await updateOrderStatus(client, { orderId: input.orderId, status: "REFUNDED" });
+    return { updatedOrder, compensatingEntries };
+  });
+
+  await events.emit({
+    organizationId: input.organizationId,
+    type: "order.refunded",
+    payload: { orderId: input.orderId },
+  });
+
+  return { order: updatedOrder, compensatingEntries };
+}
+
 export async function getCreatorBalance(pool: Pool, organizationId: string, creatorId: string): Promise<Money> {
   const entries = await withServiceRoleContext(pool, (client) =>
     getLedgerEntriesForAccount(client, { organizationId, accountType: "CREATOR_BALANCE", accountRefId: creatorId }),
   );
   return computeAccountBalance(entries);
+}
+
+/** Full ledger trail for one order -- e.g. for a receipt or audit view. Includes any compensating (refund) entries. */
+export async function getOrderLedgerEntries(pool: Pool, orderId: string): Promise<LedgerEntry[]> {
+  return withServiceRoleContext(pool, (client) => getLedgerEntriesForOrder(client, orderId));
 }
 
 export interface RequestPayoutInput {

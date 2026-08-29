@@ -41,6 +41,11 @@ is on creator ownership, provenance, and revenue transparency.
   multi-tenant isolation on every tenant-owned table. See
   `packages/db/README.md` for how to run it locally.
 
+See [`docs/dmtv-financial-architecture.md`](docs/dmtv-financial-architecture.md)
+for the audited rounding policy, the invariant every sale must satisfy,
+and how idempotency and refunds are guaranteed not to create, destroy, or
+duplicate money.
+
 ### Running the gates
 
 ```bash

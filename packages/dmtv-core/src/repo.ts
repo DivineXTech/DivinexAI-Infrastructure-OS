@@ -437,6 +437,46 @@ export async function insertMembership(
   return mapMembership(rows[0]!);
 }
 
+/** Idempotency lookup: a prior order with this key means this exact purchase attempt already ran to completion. */
+export async function getOrderByIdempotencyKey(
+  client: PoolClient,
+  organizationId: string,
+  idempotencyKey: string,
+): Promise<Order | null> {
+  const { rows } = await client.query<OrderRow>(
+    `select * from orders where organization_id = $1 and idempotency_key = $2`,
+    [organizationId, idempotencyKey],
+  );
+  return rows[0] ? mapOrder(rows[0]) : null;
+}
+
+export async function getOrder(client: PoolClient, orderId: string): Promise<Order> {
+  const { rows } = await client.query<OrderRow>(`select * from orders where id = $1`, [orderId]);
+  return mapOrder(rows[0]!);
+}
+
+export async function updateOrderStatus(
+  client: PoolClient,
+  input: { orderId: string; status: Order["status"] },
+): Promise<Order> {
+  const { rows } = await client.query<OrderRow>(`update orders set status = $2 where id = $1 returning *`, [
+    input.orderId,
+    input.status,
+  ]);
+  return mapOrder(rows[0]!);
+}
+
+export async function getMembershipForFanAndProduct(
+  client: PoolClient,
+  input: { productId: string; fanId: string },
+): Promise<Membership | null> {
+  const { rows } = await client.query<MembershipRow>(
+    `select * from memberships where product_id = $1 and fan_id = $2 order by started_at desc limit 1`,
+    [input.productId, input.fanId],
+  );
+  return rows[0] ? mapMembership(rows[0]) : null;
+}
+
 export async function insertLedgerEntries(client: PoolClient, entries: NewLedgerEntry[]): Promise<LedgerEntry[]> {
   const inserted: LedgerEntry[] = [];
   for (const entry of entries) {
@@ -469,6 +509,14 @@ export async function getLedgerEntriesForAccount(
   const { rows } = await client.query<LedgerEntryRow>(
     `select * from ledger_entries where organization_id = $1 and account_type = $2 and account_ref_id = $3`,
     [input.organizationId, input.accountType, input.accountRefId],
+  );
+  return rows.map(mapLedgerEntry);
+}
+
+export async function getLedgerEntriesForOrder(client: PoolClient, orderId: string): Promise<LedgerEntry[]> {
+  const { rows } = await client.query<LedgerEntryRow>(
+    `select * from ledger_entries where order_id = $1 order by created_at asc`,
+    [orderId],
   );
   return rows.map(mapLedgerEntry);
 }

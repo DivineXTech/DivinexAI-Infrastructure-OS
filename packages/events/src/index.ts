@@ -9,6 +9,7 @@ export const DOMAIN_EVENT_TYPES = [
   "asset.published",
   "fan.registered",
   "order.completed",
+  "order.refunded",
   "ledger.entries_recorded",
   "payout.requested",
   "payout.settled",

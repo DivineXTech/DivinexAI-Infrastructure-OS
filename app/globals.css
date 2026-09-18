@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+/*
+ * KushPrintCo OS design tokens.
+ * Premium apparel-tech palette: black / charcoal / warm gray with a single
+ * restrained accent. Keep additions here brand-neutral — tenant-specific
+ * theming is applied at runtime via tenant_brand_settings, not by editing
+ * this file.
+ */
+:root {
+  --background: #ffffff;
+  --foreground: #18181b;
+
+  --surface: #ffffff;
+  --surface-muted: #f5f4f2;
+
+  --border: #e7e5e4;
+  --border-strong: #d6d3d1;
+
+  --ink: #18181b;
+  --ink-muted: #57534e;
+  --ink-subtle: #78716c;
+
+  --charcoal: #27272a;
+  --warm-gray: #78716c;
+
+  --accent: #b45309;
+  --accent-foreground: #fffbeb;
+
+  --success: #15803d;
+  --warning: #b45309;
+  --destructive: #b91c1c;
+  --destructive-foreground: #fef2f2;
+
+  --focus-ring: #b45309;
+
+  --radius: 0.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0c0c0d;
+    --foreground: #f4f4f5;
+
+    --surface: #131314;
+    --surface-muted: #1c1c1e;
+
+    --border: #2a2a2d;
+    --border-strong: #3a3a3d;
+
+    --ink: #f4f4f5;
+    --ink-muted: #a8a29e;
+    --ink-subtle: #78716c;
+
+    --charcoal: #d4d4d8;
+    --warm-gray: #a8a29e;
+
+    --accent: #d97706;
+    --accent-foreground: #1c1200;
+
+    --success: #4ade80;
+    --warning: #d97706;
+    --destructive: #f87171;
+    --destructive-foreground: #450a0a;
+
+    --focus-ring: #d97706;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-charcoal: var(--charcoal);
+  --color-warm-gray: var(--warm-gray);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --radius-sm: calc(var(--radius) - 0.25rem);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 0.25rem);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

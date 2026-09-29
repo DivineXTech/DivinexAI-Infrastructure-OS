@@ -36,7 +36,10 @@ export interface Database {
           referral_code: string;
         };
         Update: Partial<Database["public"]["Tables"]["subscribers"]["Row"]>;
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
   };
 }

@@ -6,6 +6,8 @@ import { chapter12 } from "@/content/chapter-12";
 import { book } from "@/config/site";
 import type { Subscriber } from "@/lib/store/types";
 import { EmailGateForm } from "@/components/marketing/email-gate-form";
+import { ViewTracker } from "@/components/marketing/view-tracker";
+import { TrackedLink } from "@/components/marketing/tracked-link";
 import { buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = {
@@ -79,6 +81,7 @@ export default async function Chapter12Page({
 
   return (
     <article className="mx-auto max-w-2xl px-5 py-16 sm:px-8 sm:py-24">
+      <ViewTracker event="chapter12_viewed" />
       <span className="text-xs font-medium uppercase tracking-[0.2em] text-gold-300">
         {book.earlyAccessChapter} &middot; Early Access &middot; {chapter12.readingTime}
       </span>
@@ -91,14 +94,15 @@ export default async function Chapter12Page({
 
       {pdf.available && pdf.url && (
         <div className="mt-6">
-          <a
+          <TrackedLink
+            event="chapter12_downloaded"
             href={pdf.url}
             className={buttonVariants("gold", "md")}
             rel="noreferrer"
             data-testid="chapter12-pdf-download"
           >
             Download the PDF
-          </a>
+          </TrackedLink>
           <p className="mt-2 text-xs text-paper-dim/50">
             This download link expires in 10 minutes. Return to this page for a fresh one.
           </p>

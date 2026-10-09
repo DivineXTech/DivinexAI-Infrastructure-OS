@@ -215,7 +215,58 @@ Keep the natural aspect ratio; the `CoverArt` component (
 `src/components/marketing/cover-art.tsx`) is a fixed 2:3 frame designed for
 a standard book-cover proportion.
 
-## 10. Deploying to Vercel (blueprint.divinexai.com)
+## 10. Stripe (ebook purchases)
+
+The verified product (`prod_UtmvlaWO7E0RY1`, $19.97) and the full checkout
+→ webhook → fulfillment pipeline are implemented and tested, but **checkout
+stays off on the public site until you explicitly enable it** — set
+`NEXT_PUBLIC_CHECKOUT_ENABLED=true` only after founder approval. This is
+enforced in two places, not just the UI: `PurchaseSection` renders nothing
+when the flag is off, and `/api/checkout` independently checks the same
+flag and refuses with 403 even if someone calls it directly.
+
+**Setup, once approved:**
+1. In the Stripe dashboard, confirm the product `prod_UtmvlaWO7E0RY1`
+   exists and is active (Products catalog). The checkout session is built
+   with `price_data` referencing this product ID directly — no separate
+   Price object is required.
+2. Create a restricted or secret API key → `STRIPE_SECRET_KEY`.
+3. Add a webhook endpoint pointing at
+   `https://blueprint.divinexai.com/api/webhooks/stripe`, subscribed to
+   `checkout.session.completed`. Copy its signing secret →
+   `STRIPE_WEBHOOK_SECRET`.
+4. Set `NEXT_PUBLIC_CHECKOUT_ENABLED=true`.
+
+**How fulfillment works:** the webhook handler
+(`src/app/api/webhooks/stripe/route.ts`) verifies the Stripe signature,
+then idempotently records the purchase (unique constraint on
+`stripe_session_id` — a redelivered webhook event never double-charges or
+double-fulfills, verified in `route.test.ts` with a real signed payload,
+no network calls needed). Fulfillment currently emails a signed, short-
+lived download link; `src/lib/storage/ebook-storage.ts` mirrors the
+Chapter 12 pattern — upload the final PDF to the private `ebook-private`
+Storage bucket (created by migration 0005) and it starts working
+automatically. Until that file exists, purchasers see a "being prepared,
+we'll email you" message instead of a broken link — never an error.
+
+## 11. Analytics
+
+`src/lib/analytics.ts` exports a single `track(event, properties)` call,
+already wired at every meaningful funnel step: landing-page views,
+supporter-action opens/confirmations, waitlist form start/submit/success/
+error, Chapter 12 views and PDF downloads, referral link copies and
+shares, and purchase checkout-started/completed. It's a no-op until you
+configure PostHog (`NEXT_PUBLIC_POSTHOG_KEY`) or GA4
+(`NEXT_PUBLIC_GA_MEASUREMENT_ID`) — wiring either SDK into `app/layout.tsx`
+to set `window.posthog` / `window.gtag` is the only remaining step; no call
+site needs to change.
+
+**No subscriber PII:** `track()` strips a denylist of common PII keys
+(`email`, `firstName`, `phone`, ...) from every properties object before
+forwarding it, as a second layer behind the fact that no current call site
+passes PII in the first place (see `src/lib/analytics.test.ts`).
+
+## 12. Deploying to Vercel (blueprint.divinexai.com)
 
 1. Import the repository into Vercel, selecting the `claude/billionaire-blueprint-launch-lzoju4`
    branch (or `main` once the PR is merged) as the Production branch.
@@ -236,7 +287,7 @@ a standard book-cover proportion.
 6. `VERCEL_ENV` is set automatically by Vercel per environment — no action
    needed for the fail-fast guards in §5 to work correctly.
 
-## 11. Continuous integration
+## 13. Continuous integration
 
 `.github/workflows/billionaire-blueprint-ci.yml` runs on every push/PR that
 touches app code: lint → typecheck → unit tests → build, then a second job
@@ -246,7 +297,7 @@ before merging. It builds/runs with placeholder credentials (no
 not (and cannot, without real credentials) verify the production path
 end-to-end; that's a deploy-time check, not a CI-time one.
 
-## 12. Local verification commands
+## 14. Local verification commands
 
 ```bash
 npm run lint        # ESLint
@@ -255,7 +306,7 @@ npm test            # Vitest unit tests
 npm run test:e2e    # Playwright end-to-end smoke tests (builds + boots the app)
 ```
 
-## 13. Known `npm audit` findings
+## 15. Known `npm audit` findings
 
 This repo pins `next@^16.4.0`, which patches every production-relevant
 Next.js advisory found to date, including:
@@ -284,7 +335,7 @@ downgrade `eslint-config-next` to the 14.x line to "fix" these — a real
 regression, not a fix — so that's deliberately not applied. Re-check
 periodically for a non-breaking upstream fix.
 
-## 14. Extending this into the BookOS Launch Engine
+## 16. Extending this into the BookOS Launch Engine
 
 This codebase is intentionally structured so a future title can reuse it:
 
@@ -298,7 +349,7 @@ This codebase is intentionally structured so a future title can reuse it:
   `src/config/site.ts`, so a new launch mostly means editing that one file
   and swapping the cover image.
 
-## 15. Founder checklist — what's needed before go-live
+## 17. Founder checklist — what's needed before go-live
 
 Everything below is external to this codebase and cannot be provisioned by
 an AI agent. Nothing in the app will silently proceed without it (§5).
@@ -311,10 +362,13 @@ an AI agent. Nothing in the app will silently proceed without it (§5).
       secret, not committed anywhere
 - [ ] `ADMIN_PASSWORD` generated (12+ characters) for the `/admin` dashboard
 - [ ] Vercel project connected to this GitHub repo
+- [ ] (Only once checkout is approved) Stripe secret key and a webhook
+      endpoint configured for `checkout.session.completed` → `STRIPE_SECRET_KEY`,
+      `STRIPE_WEBHOOK_SECRET` (§10)
 
 **DNS (at whoever hosts `divinexai.com`)**
 - [ ] `blueprint.divinexai.com` → CNAME/A record per Vercel's Domains panel
-      (§10)
+      (§12)
 - [ ] For Resend domain verification: the SPF/DKIM/DMARC TXT (and
       sometimes MX) records Resend's dashboard provides for the domain you
       send from (e.g. `blueprint.divinexai.com` or a subdomain of it)
@@ -331,7 +385,10 @@ an AI agent. Nothing in the app will silently proceed without it (§5).
 - [ ] The AI Wealth Toolkit / early-release bonus / complete digital
       edition assets for referral milestones 3/10/25 (§8) — the approval
       workflow is built, but there is nothing to attach until these exist
+- [ ] Final purchasable ebook PDF (§10 — upload to the private
+      `ebook-private` Storage bucket; no code change required)
 - [ ] Support email address for `NEXT_PUBLIC_SUPPORT_EMAIL`
+- [ ] Decision on when to flip `NEXT_PUBLIC_CHECKOUT_ENABLED=true` (§10)
 
 **Sign-off**
 - [ ] PR #3 reviewed and approved by the founder

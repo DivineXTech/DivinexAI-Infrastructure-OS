@@ -42,6 +42,7 @@ Vercel, replacing the cover image, and extending this to future launches.
 | `/early-access-terms`  | Chapter 12 early-access offer terms                 |
 | `/unsubscribe`         | Email unsubscribe workflow                          |
 | `/admin`               | Password-protected dashboard (stats, subscribers, rewards, logs) |
+| `/purchase/success`, `/purchase/download` | Post-checkout confirmation + ebook download (checkout off by default) |
 
 ## Scripts
 

@@ -13,6 +13,14 @@ test.describe("landing page", () => {
     await expect(footer.getByRole("link", { name: "Early-Access Terms" })).toBeVisible();
   });
 
+  test("checkout is disabled by default (UI hidden, API refuses)", async ({ page, request }) => {
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: /Buy Now/i })).toHaveCount(0);
+
+    const response = await request.post("/api/checkout");
+    expect(response.status()).toBe(403);
+  });
+
   test("has no horizontal overflow on mobile viewport", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto("/");

@@ -14,6 +14,7 @@ export interface Subscriber {
   socialLikeConfirmed: boolean;
   socialShareConfirmed: boolean;
   chapter12AccessedAt: string | null;
+  chapter12AccessRevoked: boolean;
   unsubscribed: boolean;
   unsubscribedAt: string | null;
   source: string | null;

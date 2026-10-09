@@ -1,3 +1,4 @@
+import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { assertTokenSecretConfigured, env } from "@/lib/env";
 
@@ -11,7 +12,7 @@ import { assertTokenSecretConfigured, env } from "@/lib/env";
  * database.
  */
 
-export type TokenPurpose = "chapter12" | "status" | "unsubscribe";
+export type TokenPurpose = "chapter12" | "status" | "unsubscribe" | "admin_session" | "ebook";
 
 export interface TokenPayload {
   sub: string; // subscriber id
@@ -24,6 +25,8 @@ const PURPOSE_TTL_SECONDS: Record<TokenPurpose, number> = {
   chapter12: 60 * 60 * 24 * 90, // 90 days
   status: 60 * 60 * 24 * 30, // 30 days
   unsubscribe: 60 * 60 * 24 * 365, // 1 year
+  admin_session: 60 * 60 * 12, // 12 hours
+  ebook: 60 * 60 * 24 * 365, // 1 year (gates re-requesting a short-lived signed download URL)
 };
 
 function base64url(input: Buffer | string): string {

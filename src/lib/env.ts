@@ -1,3 +1,5 @@
+import "server-only";
+
 /**
  * Central place that reads optional external-service configuration.
  *
@@ -26,6 +28,13 @@ export const env = {
 
   tokenSecret: process.env.APP_TOKEN_SECRET || DEV_FALLBACK_TOKEN_SECRET,
 
+  adminPassword: process.env.ADMIN_PASSWORD,
+
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+  stripeProductId: process.env.STRIPE_PRODUCT_ID || "prod_UtmvlaWO7E0RY1",
+  checkoutEnabled: process.env.NEXT_PUBLIC_CHECKOUT_ENABLED === "true",
+
   posthogKey: process.env.NEXT_PUBLIC_POSTHOG_KEY,
   posthogHost: process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://app.posthog.com",
   gaMeasurementId: process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID,
@@ -43,22 +52,56 @@ export function isUsingDevTokenSecret(): boolean {
   return env.tokenSecret === DEV_FALLBACK_TOKEN_SECRET;
 }
 
+export function isAdminPasswordConfigured(): boolean {
+  return Boolean(env.adminPassword && env.adminPassword.length >= 12);
+}
+
+export function isStripeConfigured(): boolean {
+  return Boolean(env.stripeSecretKey && env.stripeWebhookSecret);
+}
+
+export type AppEnvironment = "production" | "preview" | "development";
+
+const VALID_APP_ENVIRONMENTS: readonly AppEnvironment[] = ["production", "preview", "development"];
+
 /**
- * True only for a real Vercel Production deployment (`VERCEL_ENV ===
- * "production"`, set automatically by Vercel — never by this app).
+ * Resolves which environment tier this process is running as, independent
+ * of hosting platform:
  *
- * Deliberately NOT based on `NODE_ENV`: `next build` and `next start` both
- * set `NODE_ENV=production` for local prod-mode smoke testing, Docker
- * images, and this repo's own CI/Playwright run — none of which should be
- * forced to configure Supabase/Resend/APP_TOKEN_SECRET. Vercel Preview
- * deployments get `VERCEL_ENV=preview` and correctly keep using the dev
- * fallbacks too, per SETUP.md.
- *
- * Self-hosting outside Vercel: set `VERCEL_ENV=production` explicitly in
- * your real production environment to get the same protection.
+ * 1. `APP_ENV` — an explicit, platform-agnostic signal. Set this yourself
+ *    on any non-Vercel host (a VPS, Docker, Railway, Fly.io, ...) to get
+ *    the same production protections Vercel gets automatically.
+ * 2. `VERCEL_ENV` — set automatically by Vercel ("production" | "preview"
+ *    | "development"). Used only when `APP_ENV` isn't set, so Vercel
+ *    deployments need zero extra configuration.
+ * 3. Otherwise `"development"` — the safe default. Deliberately NOT derived
+ *    from `NODE_ENV`: `next build` / `next start` always set
+ *    `NODE_ENV=production`, including for local prod-mode smoke testing,
+ *    Docker image builds, and this repo's own CI/Playwright run — none of
+ *    which should be forced to configure Supabase/Resend/APP_TOKEN_SECRET.
  */
+export function resolveAppEnvironment(): AppEnvironment {
+  const explicit = process.env.APP_ENV;
+  if (explicit && (VALID_APP_ENVIRONMENTS as readonly string[]).includes(explicit)) {
+    return explicit as AppEnvironment;
+  }
+  if (explicit) {
+    console.warn(
+      `[env] APP_ENV="${explicit}" is not one of ${VALID_APP_ENVIRONMENTS.join(", ")}. ` +
+        "Ignoring it and falling back to VERCEL_ENV / development.",
+    );
+  }
+
+  if (process.env.VERCEL_ENV === "production") return "production";
+  if (process.env.VERCEL_ENV === "preview") return "preview";
+  if (process.env.VERCEL_ENV === "development") return "development";
+
+  return "development";
+}
+
+/** True only for a real production deployment — see `resolveAppEnvironment()`. */
 export function isRunningInProduction(): boolean {
-  return process.env.VERCEL_ENV === "production";
+  return resolveAppEnvironment() === "production";
 }
 
 let warnedAboutTokenSecret = false;

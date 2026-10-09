@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { waitlistFormSchema } from "@/lib/validation/schemas";
 import { getSubscriberStore } from "@/lib/store/subscriber-store";
 import { issueToken } from "@/lib/security/tokens";
@@ -7,6 +7,7 @@ import { getClientIp, hashIp } from "@/lib/security/request-ip";
 import { sendEmail } from "@/lib/email/resend";
 import { buildConfirmationEmail } from "@/lib/email/templates/confirmation-email";
 import { isValidReferralCodeFormat, normalizeReferralCode } from "@/lib/referral";
+import { evaluateRewardsForReferrer } from "@/lib/rewards/reward-engine";
 import { siteUrl } from "@/config/site";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +60,7 @@ export async function POST(request: NextRequest) {
   const store = getSubscriberStore();
 
   let subscriber;
+  let isNew = false;
   try {
     const result = await store.upsertByEmail({
       firstName: data.firstName,
@@ -75,11 +77,30 @@ export async function POST(request: NextRequest) {
       source: data.source || "landing",
     });
     subscriber = result.subscriber;
+    isNew = result.isNew;
   } catch (error) {
     console.error("[api/waitlist] upsert failed", error);
     return NextResponse.json(
       { error: "We couldn't save your submission. Please try again shortly." },
       { status: 500 },
+    );
+  }
+
+  // Only a genuinely new signup can newly qualify a referral — re-running
+  // this for repeat submissions from the same email would be a no-op
+  // anyway (evaluateRewardsForReferrer is idempotent), but skipping it
+  // avoids the extra store round-trips on the common "already joined" path.
+  //
+  // Scheduled with `after()` rather than awaited inline (doesn't delay the
+  // signup response) or fire-and-forget (on a serverless platform the
+  // function can be frozen before an un-awaited promise finishes — `after()`
+  // is Next's supported way to run work guaranteed to complete after the
+  // response is sent, e.g. via Vercel's waitUntil).
+  if (isNew && referredBy) {
+    after(() =>
+      evaluateRewardsForReferrer(referredBy).catch((error) => {
+        console.error("[api/waitlist] reward evaluation failed", error);
+      }),
     );
   }
 

@@ -1,3 +1,4 @@
+import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { generateReferralCode } from "@/lib/referral";
@@ -23,9 +24,21 @@ export interface SubscriberStore {
     input: UpsertSubscriberInput,
   ): Promise<{ subscriber: Subscriber; isNew: boolean }>;
   countReferrals(referralCode: string): Promise<number>;
+  /** Referrals that count toward reward milestones: excludes unsubscribed referred subscribers. */
+  countQualifiedReferrals(referralCode: string): Promise<number>;
+  /** Qualified referred subscribers, oldest first — used by the reward engine's fraud heuristic. */
+  listQualifiedReferrals(referralCode: string): Promise<Subscriber[]>;
   markChapter12Accessed(id: string): Promise<void>;
+  setChapter12AccessRevoked(id: string, revoked: boolean): Promise<void>;
   markUnsubscribedByEmail(email: string): Promise<boolean>;
   getStatusByEmail(email: string): Promise<SubscriberStatus | null>;
+  /** Admin dashboard: paginated, optionally filtered by a case-insensitive search on name/email. */
+  listSubscribers(opts: { search?: string; limit: number; offset: number }): Promise<{
+    subscribers: Subscriber[];
+    total: number;
+  }>;
+  countAll(): Promise<number>;
+  countChapter12Accessed(): Promise<number>;
 }
 
 type SubscriberRow = Database["public"]["Tables"]["subscribers"]["Row"];
@@ -47,6 +60,7 @@ function rowToSubscriber(row: SubscriberRow): Subscriber {
     socialLikeConfirmed: row.social_like_confirmed,
     socialShareConfirmed: row.social_share_confirmed,
     chapter12AccessedAt: row.chapter12_accessed_at,
+    chapter12AccessRevoked: row.chapter12_access_revoked,
     unsubscribed: row.unsubscribed,
     unsubscribedAt: row.unsubscribed_at,
     source: row.source,
@@ -161,6 +175,27 @@ class SupabaseSubscriberStore implements SubscriberStore {
     return count ?? 0;
   }
 
+  async countQualifiedReferrals(referralCode: string): Promise<number> {
+    const { count, error } = await this.client()
+      .from("subscribers")
+      .select("id", { count: "exact", head: true })
+      .eq("referred_by", referralCode)
+      .eq("unsubscribed", false);
+    if (error) throw error;
+    return count ?? 0;
+  }
+
+  async listQualifiedReferrals(referralCode: string): Promise<Subscriber[]> {
+    const { data, error } = await this.client()
+      .from("subscribers")
+      .select("*")
+      .eq("referred_by", referralCode)
+      .eq("unsubscribed", false)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []).map(rowToSubscriber);
+  }
+
   async markChapter12Accessed(id: string): Promise<void> {
     const { error } = await this.client()
       .from("subscribers")
@@ -168,6 +203,52 @@ class SupabaseSubscriberStore implements SubscriberStore {
       .eq("id", id)
       .is("chapter12_accessed_at", null);
     if (error) throw error;
+  }
+
+  async setChapter12AccessRevoked(id: string, revoked: boolean): Promise<void> {
+    const { error } = await this.client()
+      .from("subscribers")
+      .update({ chapter12_access_revoked: revoked })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  async listSubscribers(opts: {
+    search?: string;
+    limit: number;
+    offset: number;
+  }): Promise<{ subscribers: Subscriber[]; total: number }> {
+    let query = this.client()
+      .from("subscribers")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(opts.offset, opts.offset + opts.limit - 1);
+
+    if (opts.search) {
+      const term = opts.search.replace(/[%_]/g, "\\$&");
+      query = query.or(`email.ilike.%${term}%,first_name.ilike.%${term}%,last_name.ilike.%${term}%`);
+    }
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+    return { subscribers: (data ?? []).map(rowToSubscriber), total: count ?? 0 };
+  }
+
+  async countAll(): Promise<number> {
+    const { count, error } = await this.client()
+      .from("subscribers")
+      .select("id", { count: "exact", head: true });
+    if (error) throw error;
+    return count ?? 0;
+  }
+
+  async countChapter12Accessed(): Promise<number> {
+    const { count, error } = await this.client()
+      .from("subscribers")
+      .select("id", { count: "exact", head: true })
+      .not("chapter12_accessed_at", "is", null);
+    if (error) throw error;
+    return count ?? 0;
   }
 
   async markUnsubscribedByEmail(email: string): Promise<boolean> {
@@ -273,6 +354,7 @@ class InMemorySubscriberStore implements SubscriberStore {
       socialLikeConfirmed: input.socialLikeConfirmed,
       socialShareConfirmed: input.socialShareConfirmed,
       chapter12AccessedAt: null,
+      chapter12AccessRevoked: false,
       unsubscribed: false,
       unsubscribedAt: null,
       source: input.source,
@@ -292,11 +374,65 @@ class InMemorySubscriberStore implements SubscriberStore {
     return count;
   }
 
+  async countQualifiedReferrals(referralCode: string): Promise<number> {
+    this.warnOnce();
+    let count = 0;
+    for (const subscriber of this.byId.values()) {
+      if (subscriber.referredBy === referralCode && !subscriber.unsubscribed) count += 1;
+    }
+    return count;
+  }
+
+  async listQualifiedReferrals(referralCode: string): Promise<Subscriber[]> {
+    this.warnOnce();
+    return [...this.byId.values()]
+      .filter((s) => s.referredBy === referralCode && !s.unsubscribed)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
   async markChapter12Accessed(id: string): Promise<void> {
     const subscriber = this.byId.get(id);
     if (subscriber && !subscriber.chapter12AccessedAt) {
       subscriber.chapter12AccessedAt = new Date().toISOString();
     }
+  }
+
+  async setChapter12AccessRevoked(id: string, revoked: boolean): Promise<void> {
+    const subscriber = this.byId.get(id);
+    if (subscriber) subscriber.chapter12AccessRevoked = revoked;
+  }
+
+  async listSubscribers(opts: {
+    search?: string;
+    limit: number;
+    offset: number;
+  }): Promise<{ subscribers: Subscriber[]; total: number }> {
+    this.warnOnce();
+    let all = [...this.byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    if (opts.search) {
+      const term = opts.search.toLowerCase();
+      all = all.filter(
+        (s) =>
+          s.email.toLowerCase().includes(term) ||
+          s.firstName.toLowerCase().includes(term) ||
+          (s.lastName ?? "").toLowerCase().includes(term),
+      );
+    }
+    return { subscribers: all.slice(opts.offset, opts.offset + opts.limit), total: all.length };
+  }
+
+  async countAll(): Promise<number> {
+    this.warnOnce();
+    return this.byId.size;
+  }
+
+  async countChapter12Accessed(): Promise<number> {
+    this.warnOnce();
+    let count = 0;
+    for (const subscriber of this.byId.values()) {
+      if (subscriber.chapter12AccessedAt) count += 1;
+    }
+    return count;
   }
 
   async markUnsubscribedByEmail(email: string): Promise<boolean> {

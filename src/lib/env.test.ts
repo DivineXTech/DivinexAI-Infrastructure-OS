@@ -30,6 +30,27 @@ describe("env.isRunningInProduction", () => {
     const { isRunningInProduction } = await import("@/lib/env");
     expect(isRunningInProduction()).toBe(true);
   });
+
+  it("honors an explicit APP_ENV=production on a non-Vercel host", async () => {
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("APP_ENV", "production");
+    const { isRunningInProduction } = await import("@/lib/env");
+    expect(isRunningInProduction()).toBe(true);
+  });
+
+  it("lets APP_ENV override a conflicting VERCEL_ENV", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("APP_ENV", "development");
+    const { isRunningInProduction } = await import("@/lib/env");
+    expect(isRunningInProduction()).toBe(false);
+  });
+
+  it("falls back to VERCEL_ENV / development for an invalid APP_ENV value", async () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("APP_ENV", "prod"); // common typo, not a recognized value
+    const { isRunningInProduction } = await import("@/lib/env");
+    expect(isRunningInProduction()).toBe(true); // falls back to VERCEL_ENV
+  });
 });
 
 describe("env.assertTokenSecretConfigured", () => {

@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { verifyToken } from "@/lib/security/tokens";
 import { getSubscriberStore } from "@/lib/store/subscriber-store";
+import { getRewardStore } from "@/lib/store/reward-store";
 import { issueToken } from "@/lib/security/tokens";
 import { book } from "@/config/site";
 import { EmailGateForm } from "@/components/marketing/email-gate-form";
 import { ReferralShareWidget } from "@/components/marketing/referral-share-widget";
+import { RewardProgress } from "@/components/marketing/reward-progress";
 import { buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = {
@@ -41,7 +43,8 @@ export default async function StatusPage({
     );
   }
 
-  const referralCount = await getSubscriberStore().countReferrals(subscriber.referralCode);
+  const referralCount = await getSubscriberStore().countQualifiedReferrals(subscriber.referralCode);
+  const rewardGrants = await getRewardStore().listGrantsForSubscriber(subscriber.id);
   const chapter12Token = issueToken(subscriber.id, "chapter12");
 
   return (
@@ -73,15 +76,32 @@ export default async function StatusPage({
       </div>
 
       <div className="mt-8">
-        <Link href={`/chapter-12?token=${chapter12Token}`} className={buttonVariants("gold", "md")}>
-          Open {book.earlyAccessChapter}
-        </Link>
+        {subscriber.chapter12AccessRevoked ? (
+          <p className="text-sm text-paper-dim/60">
+            {book.earlyAccessChapter} access is currently paused on this account.
+          </p>
+        ) : (
+          <Link href={`/chapter-12?token=${chapter12Token}`} className={buttonVariants("gold", "md")}>
+            Open {book.earlyAccessChapter}
+          </Link>
+        )}
       </div>
 
       <div className="mt-12">
         <h2 className="font-serif-display text-lg text-paper">Your referral link</h2>
         <div className="mt-4">
           <ReferralShareWidget referralCode={subscriber.referralCode} />
+        </div>
+      </div>
+
+      <div className="mt-12">
+        <h2 className="font-serif-display text-lg text-paper">Referral rewards</h2>
+        <p className="mt-2 text-sm text-paper-dim">
+          Rewards marked &quot;in review&quot; are confirmed and awaiting fulfillment — we&apos;ll
+          email you when they ship.
+        </p>
+        <div className="mt-4">
+          <RewardProgress qualifiedCount={referralCount} grants={rewardGrants} />
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import "server-only";
 import { Resend } from "resend";
 import { env, isResendConfigured, isRunningInProduction } from "@/lib/env";
 import { contact } from "@/config/site";

@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { env, warnIfDevTokenSecret } from "@/lib/env";
+import { assertTokenSecretConfigured, env } from "@/lib/env";
 
 /**
  * Signed, expiring, stateless tokens used for "magic link" style access:
@@ -31,7 +31,7 @@ function base64url(input: Buffer | string): string {
 }
 
 function sign(data: string): string {
-  warnIfDevTokenSecret();
+  assertTokenSecretConfigured();
   return createHmac("sha256", env.tokenSecret).update(data).digest("base64url");
 }
 

@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { env, isResendConfigured } from "@/lib/env";
+import { env, isResendConfigured, isRunningInProduction } from "@/lib/env";
 import { contact } from "@/config/site";
 
 let cachedClient: Resend | null = null;
@@ -34,6 +34,13 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   const client = getResendClient();
 
   if (!client) {
+    if (isRunningInProduction()) {
+      throw new Error(
+        "RESEND_API_KEY is not configured in production. Refusing to silently " +
+          "drop subscriber emails — set RESEND_API_KEY (and verify RESEND_FROM_EMAIL's " +
+          "domain) in the Vercel project's Production environment variables. See SETUP.md.",
+      );
+    }
     console.warn(
       `[email:simulated] RESEND_API_KEY not set. Would send "${input.subject}" to ${input.to}.\n` +
         `--- text body ---\n${input.text}\n-----------------`,

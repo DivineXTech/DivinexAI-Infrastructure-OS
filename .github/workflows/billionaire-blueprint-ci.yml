@@ -1,0 +1,87 @@
+name: Billionaire Blueprint CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "supabase/**"
+      - "e2e/**"
+      - "package.json"
+      - "package-lock.json"
+      - "*.config.ts"
+      - "*.config.mjs"
+      - "tsconfig.json"
+      - ".github/workflows/billionaire-blueprint-ci.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "public/**"
+      - "supabase/**"
+      - "e2e/**"
+      - "package.json"
+      - "package-lock.json"
+      - "*.config.ts"
+      - "*.config.mjs"
+      - "tsconfig.json"
+      - ".github/workflows/billionaire-blueprint-ci.yml"
+
+concurrency:
+  group: billionaire-blueprint-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm test
+
+      - run: npm run build
+        env:
+          # Dev fallbacks keep the build/tests green without real credentials.
+          # Real deployments must set these in the Vercel project instead.
+          APP_TOKEN_SECRET: ci-only-placeholder-secret-not-for-production
+
+  e2e:
+    name: Playwright end-to-end
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e
+        env:
+          APP_TOKEN_SECRET: ci-only-placeholder-secret-not-for-production
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

@@ -1,7 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/database.types";
 import { generateReferralCode } from "@/lib/referral";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isRunningInProduction, isSupabaseConfigured } from "@/lib/env";
 import type { Subscriber, SubscriberStatus, UpsertSubscriberInput } from "@/lib/store/types";
 
 /**
@@ -319,7 +319,20 @@ let store: SubscriberStore | null = null;
 
 export function getSubscriberStore(): SubscriberStore {
   if (!store) {
-    store = isSupabaseConfigured() ? new SupabaseSubscriberStore() : new InMemorySubscriberStore();
+    if (!isSupabaseConfigured()) {
+      if (isRunningInProduction()) {
+        throw new Error(
+          "Supabase is not configured in production (NEXT_PUBLIC_SUPABASE_URL / " +
+            "SUPABASE_SERVICE_ROLE_KEY are missing). Refusing to fall back to the " +
+            "in-memory store — subscriber data would be lost on every cold start. " +
+            "Set these in the Vercel project's Production environment variables. " +
+            "See SETUP.md.",
+        );
+      }
+      store = new InMemorySubscriberStore();
+    } else {
+      store = new SupabaseSubscriberStore();
+    }
   }
   return store;
 }

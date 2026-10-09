@@ -116,7 +116,14 @@ export async function POST(request: NextRequest) {
     unsubscribeUrl: `${siteUrl}/unsubscribe?token=${unsubscribeToken}`,
   });
 
-  const sendResult = await sendEmail({ to: subscriber.email, subject: email.subject, html: email.html, text: email.text });
+  const sendResult = await sendEmail({
+    to: subscriber.email,
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
+    emailType: "waitlist_confirmation",
+    subscriberId: subscriber.id,
+  });
   if (!sendResult.delivered && !sendResult.simulated) {
     console.error("[api/waitlist] confirmation email failed to send", sendResult.error);
   }

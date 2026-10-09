@@ -14,6 +14,12 @@ export default defineConfig({
     url: "http://127.0.0.1:3100",
     reuseExistingServer: !process.env.CI,
     timeout: 180 * 1000,
+    env: {
+      // Lets e2e/admin.spec.ts exercise a real login — not a production
+      // secret, this process only ever runs against the ephemeral
+      // in-memory dev store.
+      ADMIN_PASSWORD: "e2e-test-admin-password-123",
+    },
   },
   projects: [
     {

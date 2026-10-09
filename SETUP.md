@@ -68,18 +68,20 @@ You can also run `select * from pg_policies where tablename = 'subscribers';`
 in the SQL editor — it should return **zero rows**, confirming no policy
 accidentally opens the table up.
 
-**Chapter 12 content storage:** the early-access chapter is currently plain
-text checked into source at `src/content/chapter-12.ts`, rendered only after
-the page verifies a signed access token server-side — an unauthenticated
-request never receives the chapter content in its response, so this already
-satisfies "private" without a storage layer. If the final asset becomes a
-formatted file (PDF/EPUB) instead of text, the stack's Supabase Storage
-integration is still available but not yet wired up: create a **private**
-bucket (`chapter-12`, public access off), upload the file, and in
-`src/app/chapter-12/page.tsx` replace the inline content render with
-`await getSupabaseAdmin().storage.from("chapter-12").createSignedUrl(path, 300)`
-after the existing token check, then redirect/embed that short-lived signed
-URL. No other route or component needs to change.
+**Chapter 12 PDF delivery:** the early-access chapter renders from plain
+text checked into source at `src/content/chapter-12.ts` by default — that
+alone already satisfies "private" (the page verifies a signed access token
+server-side first; an unauthenticated request never receives the content).
+On top of that, `supabase/migrations/0002_chapter12_access_control.sql`
+creates a **private** Storage bucket (`chapter12-private`, public access
+off — same RLS-equivalent lockdown as the `subscribers` table: zero
+`storage.objects` policies, service-role only). Once you upload the
+approved PDF there as `chapter-12.pdf` (via the Supabase dashboard or CLI —
+no SQL migration can upload the file itself), the Chapter 12 page
+automatically detects it and shows a "Download the PDF" button with a
+10-minute signed URL, generated fresh on every page load
+(`src/lib/storage/chapter12-storage.ts`). Nothing else needs to change —
+until the file is uploaded, the page keeps using the text fallback.
 
 ## 3. Provisioning Resend (transactional email)
 
@@ -139,7 +141,65 @@ Set the `NEXT_PUBLIC_SOCIAL_*` and `NEXT_PUBLIC_LAUNCH_POST_URL` /
 destinations. These are read in one place — `src/config/site.ts` — so
 there's nowhere else to update when a campaign changes.
 
-## 7. Replacing the book cover
+## 7. Admin dashboard (/admin)
+
+A single-operator dashboard at `/admin` for running the launch:
+
+- **Overview** — subscriber/Chapter-12/reward/email-failure counts, integration status.
+- **Subscribers** — search by name/email, paginate, export all subscribers to CSV,
+  revoke/restore an individual subscriber's Chapter 12 access.
+- **Rewards** — review pending referral-reward grants (see "Referral reward
+  engine" below) and approve, deny, or mark fulfilled. Fulfilling sends the
+  subscriber a confirmation email.
+- **Campaign** — read-only view of the current book/social/reward/integration
+  configuration (edit the source values in `src/config/site.ts` /
+  `src/config/rewards.ts` / environment variables, not here).
+- **Audit Log** — every admin action (logins, reward decisions, CSV exports,
+  access revocations) plus a transactional email delivery log.
+
+**Setup:** set `ADMIN_PASSWORD` to a strong, unique value (minimum 12
+characters — shorter values are rejected even if set). There is deliberately
+no default/dev password: the dashboard is simply unreachable until this is
+configured. See `src/lib/admin/auth.ts` for the full rationale, including
+why this is a single shared password rather than a multi-user system, and
+how to swap in Supabase Auth later if that changes.
+
+Sessions last 12 hours and are revoked immediately on logout. Login attempts
+are rate-limited (5 per 15 minutes per IP).
+
+## 8. Referral reward engine
+
+Four milestones (`src/config/rewards.ts`), evaluated automatically after
+every new referred signup (`src/lib/rewards/reward-engine.ts`):
+
+| Referrals | Reward | Fulfillment |
+| --- | --- | --- |
+| 1 | Early Supporter recognition | Automatic (no asset required) |
+| 3 | AI Wealth Toolkit | Requires admin approval + the asset |
+| 10 | Early digital-release bonus | Requires admin approval + the asset |
+| 25 | Complete digital edition + launch Q&A invite | Requires admin approval + the asset |
+
+Only the 1-referral milestone auto-fulfills. Every other milestone is
+created as `pending_review` and **will not notify the subscriber that it's
+ready, or send anything, until an administrator approves and fulfills it**
+in `/admin/rewards` — by design, so the app never promises or ships a
+reward that doesn't exist yet. "Fulfilling" currently sends a confirmation
+email; it does not yet attach a real downloadable asset, since none has
+been supplied. Once the Toolkit/bonus/edition files exist, wire them into
+`src/lib/rewards/reward-engine.ts`'s fulfillment email the same way Chapter
+12's PDF is wired in `src/lib/storage/chapter12-storage.ts` (§2's RLS note
+applies equally to a new private bucket for these).
+
+A referral only qualifies toward a milestone if the referred subscriber
+hasn't unsubscribed. A lightweight fraud heuristic
+(`FRAUD_VELOCITY_THRESHOLD` / `FRAUD_VELOCITY_WINDOW_MS` in
+`reward-engine.ts`) flags a referrer for manual review — forcing even the
+1-referral milestone to `pending_review` — if 3+ qualified referrals land
+within a 10-minute window. This is a self-contained heuristic, not a third-
+party fraud service (none was specified); tune or replace it as real-world
+abuse patterns emerge.
+
+## 9. Replacing the book cover
 
 Drop a new image at `public/images/billionaire-blueprint-2-cover.png` (or
 update the path in `src/config/site.ts` → `assets.coverImage`, e.g. to a
@@ -155,7 +215,7 @@ Keep the natural aspect ratio; the `CoverArt` component (
 `src/components/marketing/cover-art.tsx`) is a fixed 2:3 frame designed for
 a standard book-cover proportion.
 
-## 8. Deploying to Vercel (blueprint.divinexai.com)
+## 10. Deploying to Vercel (blueprint.divinexai.com)
 
 1. Import the repository into Vercel, selecting the `claude/billionaire-blueprint-launch-lzoju4`
    branch (or `main` once the PR is merged) as the Production branch.
@@ -176,7 +236,7 @@ a standard book-cover proportion.
 6. `VERCEL_ENV` is set automatically by Vercel per environment — no action
    needed for the fail-fast guards in §5 to work correctly.
 
-## 9. Continuous integration
+## 11. Continuous integration
 
 `.github/workflows/billionaire-blueprint-ci.yml` runs on every push/PR that
 touches app code: lint → typecheck → unit tests → build, then a second job
@@ -186,7 +246,7 @@ before merging. It builds/runs with placeholder credentials (no
 not (and cannot, without real credentials) verify the production path
 end-to-end; that's a deploy-time check, not a CI-time one.
 
-## 10. Local verification commands
+## 12. Local verification commands
 
 ```bash
 npm run lint        # ESLint
@@ -195,7 +255,7 @@ npm test            # Vitest unit tests
 npm run test:e2e    # Playwright end-to-end smoke tests (builds + boots the app)
 ```
 
-## 11. Known `npm audit` findings
+## 13. Known `npm audit` findings
 
 This repo pins `next@^16.4.0`, which patches every production-relevant
 Next.js advisory found to date, including:
@@ -224,7 +284,7 @@ downgrade `eslint-config-next` to the 14.x line to "fix" these — a real
 regression, not a fix — so that's deliberately not applied. Re-check
 periodically for a non-breaking upstream fix.
 
-## 12. Extending this into the BookOS Launch Engine
+## 14. Extending this into the BookOS Launch Engine
 
 This codebase is intentionally structured so a future title can reuse it:
 
@@ -238,7 +298,7 @@ This codebase is intentionally structured so a future title can reuse it:
   `src/config/site.ts`, so a new launch mostly means editing that one file
   and swapping the cover image.
 
-## 13. Founder checklist — what's needed before go-live
+## 15. Founder checklist — what's needed before go-live
 
 Everything below is external to this codebase and cannot be provisioned by
 an AI agent. Nothing in the app will silently proceed without it (§5).
@@ -249,26 +309,29 @@ an AI agent. Nothing in the app will silently proceed without it (§5).
 - [ ] Resend account; sending domain added and verified; `RESEND_API_KEY`
 - [ ] `APP_TOKEN_SECRET` generated (`openssl rand -hex 32`) and stored as a
       secret, not committed anywhere
+- [ ] `ADMIN_PASSWORD` generated (12+ characters) for the `/admin` dashboard
 - [ ] Vercel project connected to this GitHub repo
 
 **DNS (at whoever hosts `divinexai.com`)**
 - [ ] `blueprint.divinexai.com` → CNAME/A record per Vercel's Domains panel
-      (§8)
+      (§10)
 - [ ] For Resend domain verification: the SPF/DKIM/DMARC TXT (and
       sometimes MX) records Resend's dashboard provides for the domain you
       send from (e.g. `blueprint.divinexai.com` or a subdomain of it)
 
 **Assets**
 - [ ] Final book cover image (replaces `public/images/billionaire-blueprint-2-cover.png`
-      — see §7; no code change required)
+      — see §9; no code change required)
 - [ ] Final Follow/Like/Share destination URLs (Instagram, TikTok, YouTube,
       Facebook, LinkedIn, the launch post, the share URL) for the
       `NEXT_PUBLIC_SOCIAL_*` variables (§6)
-- [ ] Final Chapter 12 text/file, if different from the current placeholder
-      chapter in `src/content/chapter-12.ts`
+- [ ] Final Chapter 12 PDF, if different from the current placeholder text
+      chapter in `src/content/chapter-12.ts` (§2 — upload to the private
+      Supabase Storage bucket; no code change required)
+- [ ] The AI Wealth Toolkit / early-release bonus / complete digital
+      edition assets for referral milestones 3/10/25 (§8) — the approval
+      workflow is built, but there is nothing to attach until these exist
 - [ ] Support email address for `NEXT_PUBLIC_SUPPORT_EMAIL`
-- [ ] Decision + details on referral reward fulfillment (not yet built —
-      see the production-readiness report for what exists vs. doesn't)
 
 **Sign-off**
 - [ ] PR #3 reviewed and approved by the founder

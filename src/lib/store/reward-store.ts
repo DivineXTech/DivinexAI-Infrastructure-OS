@@ -26,7 +26,9 @@ export interface RewardStore {
   /**
    * Transitions a grant's status. Fulfillment is idempotent: calling this
    * with status "fulfilled" on an already-fulfilled grant is a no-op (the
-   * original fulfilledAt is preserved, not overwritten).
+   * original fulfilledAt is preserved, not overwritten) — `transitioned`
+   * is false in that case, so callers (e.g. the fulfillment notification
+   * email) know not to re-send anything.
    */
   updateGrantStatus(
     id: string,
@@ -35,7 +37,7 @@ export interface RewardStore {
       approvedBy?: string;
       deniedReason?: string;
     },
-  ): Promise<RewardGrant | null>;
+  ): Promise<{ grant: RewardGrant; transitioned: boolean } | null>;
 }
 
 type RewardGrantRow = Database["public"]["Tables"]["reward_grants"]["Row"];
@@ -136,7 +138,7 @@ class SupabaseRewardStore implements RewardStore {
   async updateGrantStatus(
     id: string,
     changes: { status: RewardGrantStatus; approvedBy?: string; deniedReason?: string },
-  ): Promise<RewardGrant | null> {
+  ): Promise<{ grant: RewardGrant; transitioned: boolean } | null> {
     const existing = await this.client()
       .from("reward_grants")
       .select("*")
@@ -147,7 +149,7 @@ class SupabaseRewardStore implements RewardStore {
 
     // Idempotent fulfillment: don't clobber an already-fulfilled grant.
     if (existing.data.status === "fulfilled") {
-      return rowToGrant(existing.data);
+      return { grant: rowToGrant(existing.data), transitioned: false };
     }
 
     const now = new Date().toISOString();
@@ -164,7 +166,7 @@ class SupabaseRewardStore implements RewardStore {
       .select("*")
       .single();
     if (error) throw error;
-    return rowToGrant(data);
+    return { grant: rowToGrant(data), transitioned: true };
   }
 }
 
@@ -225,10 +227,10 @@ class InMemoryRewardStore implements RewardStore {
   async updateGrantStatus(
     id: string,
     changes: { status: RewardGrantStatus; approvedBy?: string; deniedReason?: string },
-  ): Promise<RewardGrant | null> {
+  ): Promise<{ grant: RewardGrant; transitioned: boolean } | null> {
     const grant = [...this.grants.values()].find((g) => g.id === id);
     if (!grant) return null;
-    if (grant.status === "fulfilled") return grant;
+    if (grant.status === "fulfilled") return { grant, transitioned: false };
 
     const now = new Date().toISOString();
     grant.status = changes.status;
@@ -243,7 +245,7 @@ class InMemoryRewardStore implements RewardStore {
       grant.fulfilledAt = now;
     }
     grant.updatedAt = now;
-    return grant;
+    return { grant, transitioned: true };
   }
 }
 

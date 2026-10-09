@@ -2,6 +2,7 @@ import "server-only";
 import { Resend } from "resend";
 import { env, isResendConfigured, isRunningInProduction } from "@/lib/env";
 import { contact } from "@/config/site";
+import { getEmailLogStore } from "@/lib/store/email-log-store";
 
 let cachedClient: Resend | null = null;
 
@@ -16,6 +17,10 @@ export interface SendEmailInput {
   subject: string;
   html: string;
   text: string;
+  /** For the admin dashboard's email log — e.g. "waitlist_confirmation", "reward_earned". */
+  emailType: string;
+  /** For the admin dashboard's email log, when the recipient is a known subscriber. */
+  subscriberId?: string;
 }
 
 export interface SendEmailResult {
@@ -33,7 +38,25 @@ export interface SendEmailResult {
  */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const client = getResendClient();
+  const result = await doSend(client, input);
 
+  try {
+    await getEmailLogStore().record({
+      subscriberId: input.subscriberId ?? null,
+      emailType: input.emailType,
+      toEmail: input.to,
+      delivered: result.delivered,
+      simulated: result.simulated,
+      error: result.error ?? null,
+    });
+  } catch (logError) {
+    console.error("[email-log] failed to record entry", logError);
+  }
+
+  return result;
+}
+
+async function doSend(client: Resend | null, input: SendEmailInput): Promise<SendEmailResult> {
   if (!client) {
     if (isRunningInProduction()) {
       throw new Error(

@@ -23,7 +23,7 @@ describe("email production guard", () => {
 
     const { sendEmail } = await import("@/lib/email/resend");
     await expect(
-      sendEmail({ to: "a@example.com", subject: "s", html: "<p>h</p>", text: "t" }),
+      sendEmail({ to: "a@example.com", subject: "s", html: "<p>h</p>", text: "t", emailType: "test" }),
     ).rejects.toThrow(/RESEND_API_KEY is not configured/);
   });
 });

@@ -112,5 +112,12 @@ async function notifyReferrerOfNewGrant(
     fulfilled,
     statusUrl: `${siteUrl}/status?token=${statusToken}`,
   });
-  await sendEmail({ to: referrer.email, subject: email.subject, html: email.html, text: email.text });
+  await sendEmail({
+    to: referrer.email,
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
+    emailType: fulfilled ? "reward_fulfilled" : "reward_earned",
+    subscriberId: referrer.id,
+  });
 }

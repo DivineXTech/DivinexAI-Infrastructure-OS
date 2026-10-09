@@ -41,6 +41,7 @@ Vercel, replacing the cover image, and extending this to future launches.
 | `/terms`               | Terms of Use                                        |
 | `/early-access-terms`  | Chapter 12 early-access offer terms                 |
 | `/unsubscribe`         | Email unsubscribe workflow                          |
+| `/admin`               | Password-protected dashboard (stats, subscribers, rewards, logs) |
 
 ## Scripts
 

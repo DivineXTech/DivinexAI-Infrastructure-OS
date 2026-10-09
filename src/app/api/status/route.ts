@@ -51,7 +51,14 @@ export async function POST(request: NextRequest) {
       unsubscribeUrl: `${siteUrl}/unsubscribe?token=${unsubscribeToken}`,
     });
 
-    await sendEmail({ to: subscriber.email, subject: email.subject, html: email.html, text: email.text });
+    await sendEmail({
+      to: subscriber.email,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+      emailType: "status_resend",
+      subscriberId: subscriber.id,
+    });
   }
 
   // Always return the same response, whether or not the email was found,

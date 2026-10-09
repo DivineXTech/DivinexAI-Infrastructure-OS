@@ -1,0 +1,89 @@
+import "server-only";
+import { Resend } from "resend";
+import { env, isResendConfigured, isRunningInProduction } from "@/lib/env";
+import { contact } from "@/config/site";
+import { getEmailLogStore } from "@/lib/store/email-log-store";
+
+let cachedClient: Resend | null = null;
+
+function getResendClient(): Resend | null {
+  if (!isResendConfigured()) return null;
+  if (!cachedClient) cachedClient = new Resend(env.resendApiKey);
+  return cachedClient;
+}
+
+export interface SendEmailInput {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  /** For the admin dashboard's email log — e.g. "waitlist_confirmation", "reward_earned". */
+  emailType: string;
+  /** For the admin dashboard's email log, when the recipient is a known subscriber. */
+  subscriberId?: string;
+}
+
+export interface SendEmailResult {
+  delivered: boolean;
+  /** True when no RESEND_API_KEY is set and the email was only logged. */
+  simulated: boolean;
+  error?: string;
+}
+
+/**
+ * Sends transactional email via Resend. When RESEND_API_KEY is not set
+ * (local development), the email is logged to the console instead of
+ * thrown away, so the full signup flow remains testable without a Resend
+ * account.
+ */
+export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
+  const client = getResendClient();
+  const result = await doSend(client, input);
+
+  try {
+    await getEmailLogStore().record({
+      subscriberId: input.subscriberId ?? null,
+      emailType: input.emailType,
+      toEmail: input.to,
+      delivered: result.delivered,
+      simulated: result.simulated,
+      error: result.error ?? null,
+    });
+  } catch (logError) {
+    console.error("[email-log] failed to record entry", logError);
+  }
+
+  return result;
+}
+
+async function doSend(client: Resend | null, input: SendEmailInput): Promise<SendEmailResult> {
+  if (!client) {
+    if (isRunningInProduction()) {
+      throw new Error(
+        "RESEND_API_KEY is not configured in production. Refusing to silently " +
+          "drop subscriber emails — set RESEND_API_KEY (and verify RESEND_FROM_EMAIL's " +
+          "domain) in the Vercel project's Production environment variables. See SETUP.md.",
+      );
+    }
+    console.warn(
+      `[email:simulated] RESEND_API_KEY not set. Would send "${input.subject}" to ${input.to}.\n` +
+        `--- text body ---\n${input.text}\n-----------------`,
+    );
+    return { delivered: false, simulated: true };
+  }
+
+  const { error } = await client.emails.send({
+    from: contact.fromEmail,
+    to: input.to,
+    subject: input.subject,
+    html: input.html,
+    text: input.text,
+  });
+
+  if (error) {
+    console.error("[email:error]", error);
+    return { delivered: false, simulated: false, error: error.message };
+  }
+
+  return { delivered: true, simulated: false };
+}
